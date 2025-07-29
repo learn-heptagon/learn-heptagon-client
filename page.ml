@@ -17,6 +17,8 @@ let container = Dom_html.getElementById "container"
 
 let display_notebook_cells nob container =
   current_notebook := Some nob;
+  let children = Dom.list_of_nodeList container##.childNodes in
+  List.iter (fun n -> Dom.removeChild container n) children;
   List.iter (fun nob_cell ->
     match nob_cell with
       | Text s ->
@@ -77,13 +79,15 @@ let download_button =
     a_onclick (fun _ ->
       match !current_notebook with
         | Some nob ->
-          let content = ref "" in
-          List.iter (fun nob_cell ->
-            match nob_cell with
-              | Editor ed -> content := !content ^ ed.editor_content
-              | _ -> ()
-          ) nob.cells;
-          save_file (nob.title ^ ".json") !content;
+          let content =
+            List.fold_right (fun nob_cell acc ->
+              match nob_cell with
+                | Editor ed -> ed.editor_content :: acc
+                | _ -> acc
+            ) nob.cells []
+          in
+          let json = Json.output content in
+          save_file (nob.title ^ ".json") (Js.to_string json);
           true
         | None -> false)]
   [txt "Download file"])

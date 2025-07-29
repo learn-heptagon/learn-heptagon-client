@@ -11,8 +11,6 @@ let () =
     Dom.appendChild (Dom_html.getElementById "nob-buttons") (Tyxml_js.To_dom.of_node nob_button);
     let div = Dom_html.getElementById div_id in
     div##.onclick := Dom_html.handler (fun _ ->
-      let children = Dom.list_of_nodeList Page.container##.childNodes in
-      List.iter (fun n -> Dom.removeChild Page.container n) children;
       Page.display_notebook_cells nob Page.container;
       Dom.appendChild Page.container (Tyxml_js.To_dom.of_node Page.buttons);
       Js._true)
