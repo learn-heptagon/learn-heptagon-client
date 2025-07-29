@@ -13,6 +13,8 @@ let set_editor_height editor =
 let clear_editor_selection editor =
   ignore (Js.Unsafe.fun_call(Js.Unsafe.js_expr "clearEditorSelection") [|Js.Unsafe.inject editor|])
 
+let container = Dom_html.getElementById "container"
+
 let display_notebook_cells nob container =
   current_notebook := Some nob;
   List.iter (fun nob_cell ->
@@ -62,7 +64,7 @@ let load_file ev =
           reader##.onload := Dom.handler (fun _ ->
             let content = Js.Opt.get reader##.result (fun () -> assert false) in
             let my_notebook : notebook = Json.unsafe_input content in
-            display_notebook_cells my_notebook;
+            display_notebook_cells my_notebook container;
             Js._false
           );
           true

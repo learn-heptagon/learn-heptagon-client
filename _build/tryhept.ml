@@ -11,11 +11,10 @@ let () =
     Dom.appendChild (Dom_html.getElementById "nob-buttons") (Tyxml_js.To_dom.of_node nob_button);
     let div = Dom_html.getElementById div_id in
     div##.onclick := Dom_html.handler (fun _ ->
-      let container = Dom_html.getElementById "nob-cells-container" in
-      let children = Dom.list_of_nodeList container##.childNodes in
-      List.iter (fun n -> Dom.removeChild container n) children;
-      Page.display_notebook_cells nob container;
-      Dom.appendChild container (Tyxml_js.To_dom.of_node Page.buttons);
+      let children = Dom.list_of_nodeList Page.container##.childNodes in
+      List.iter (fun n -> Dom.removeChild Page.container n) children;
+      Page.display_notebook_cells nob Page.container;
+      Dom.appendChild Page.container (Tyxml_js.To_dom.of_node Page.buttons);
       Js._true)
   ) Examples.my_notebooks(*;
   let s = Json.output notebook1 in
