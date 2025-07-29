@@ -60,15 +60,20 @@ let load_file ev =
   match input_element with
     | Some input ->
       let files_opt = Js.Optdef.to_option input##.files in
+      print_endline "before files_opt";
       (match files_opt with
         | Some files when files##.length > 0 ->
-          let reader = Js.Unsafe.new_obj (Js.Unsafe.js_expr "FileReader") [||] in
-          reader##.onload := Dom.handler (fun _ ->
-            let content = Js.Opt.get reader##.result (fun () -> assert false) in
-            let my_notebook : notebook = Json.unsafe_input content in
-            display_notebook_cells my_notebook container;
-            Js._false
-          );
+          print_endline "before reader";
+          let reader = new%js File.fileReader in
+          reader##.onload :=
+            Dom.handler (fun _ ->
+              let content = Js.Opt.get (File.CoerceTo.string reader##.result) (fun () -> assert false) in
+              let my_notebook : string list = Json.unsafe_input content in
+              List.iter print_endline my_notebook;
+              (* TODO load content *)
+              Js._false
+            );
+          reader##readAsText (Js.Opt.get (files##item 0) (fun () -> assert false));
           true
         | _ -> false)
     | _ -> false
