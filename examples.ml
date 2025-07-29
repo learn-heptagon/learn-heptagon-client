@@ -1,4 +1,4 @@
-open Page
+open Notebook
 
 let editor1_content = "\
 node max(fst, snd : real) returns (out : real)
@@ -43,19 +43,19 @@ tel
 "
 
 let notebook1 = {
-  title = "combinatorial.lus"
+  title = "combinatorial.lus";
   cells = [Text "combinatorial";
-           Editor { editor_id = 1; editor_content = Default_contents.editor1_content; };
-           Editor { editor_id = 2; editor_content = Default_contents.editor2_content; };
-           Editor { editor_id = 3; editor_content = Default_contents.editor3_content; }];
+           Editor { editor_id = 1; editor_content = editor1_content; };
+           Editor { editor_id = 2; editor_content = editor2_content; };
+           Editor { editor_id = 3; editor_content = editor3_content; }];
   }
 
 and notebook2 = {
-  title = "full_adder.lus"
+  title = "full_adder.lus";
   cells = [Text "full_adder";
-           Editor { editor_id = 4; editor_content = Default_contents.editor4_content; };
-           Editor { editor_id = 5; editor_content = Default_contents.editor5_content; };
-           Editor { editor_id = 6; editor_content = Default_contents.editor6_content; }];
+           Editor { editor_id = 4; editor_content = editor4_content; };
+           Editor { editor_id = 5; editor_content = editor5_content; };
+           Editor { editor_id = 6; editor_content = editor6_content; }];
   }
 
 let my_notebooks = [notebook1; notebook2]

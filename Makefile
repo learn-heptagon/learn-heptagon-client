@@ -9,8 +9,9 @@ FLAGS=-use-ocamlfind -Is heptagon/compiler/ \
 	  -no-hygiene
 
 SRC := \
-	default_contents.ml \
+	notebook.ml \
 	page.ml \
+	examples.ml \
 	tryhept.ml \
 
 all: tryhept.js
