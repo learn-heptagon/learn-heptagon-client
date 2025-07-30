@@ -60,17 +60,32 @@ let load_file ev =
   match input_element with
     | Some input ->
       let files_opt = Js.Optdef.to_option input##.files in
-      print_endline "before files_opt";
       (match files_opt with
         | Some files when files##.length > 0 ->
-          print_endline "before reader";
           let reader = new%js File.fileReader in
           reader##.onload :=
             Dom.handler (fun _ ->
               let content = Js.Opt.get (File.CoerceTo.string reader##.result) (fun () -> assert false) in
-              let my_notebook : string list = Json.unsafe_input content in
-              List.iter print_endline my_notebook;
-              (* TODO load content *)
+              let (title, contents) : (string * string list) = Json.unsafe_input content in
+              (match !current_notebook with
+                | Some nob when nob.title = title ->
+                  let editors = List.filter_map (fun nob_cell ->
+                    match nob_cell with
+                      | Editor ed -> Some ed
+                      | _ -> None
+                  ) nob.cells
+                  in
+                  if List.length editors = List.length contents then (
+                    List.iter2 (fun ed c ->
+                      let my_editor = Ace.edit (Dom_html.getElementById ("editor-" ^ string_of_int ed.editor_id)) in
+                      my_editor##setValue (Js.string c);
+                      set_editor_height my_editor;
+                      clear_editor_selection my_editor
+                    ) editors contents
+                  ) else
+                    print_endline "Mismatch between number of editors and content's length"
+                | Some _ -> print_endline "Mismatch between notebooks' titles"
+                | None -> ());
               Js._false
             );
           reader##readAsText (Js.Opt.get (files##item 0) (fun () -> assert false));
@@ -78,9 +93,8 @@ let load_file ev =
         | _ -> false)
     | _ -> false
 
-let download_button =
+let save_button =
   T.(button ~a:[
-    a_class ["button-style"];
     a_onclick (fun _ ->
       match !current_notebook with
         | Some nob ->
@@ -91,14 +105,14 @@ let download_button =
                 | _ -> acc
             ) nob.cells []
           in
-          let json = Json.output content in
+          let json = Json.output (nob.title, content) in
           save_file (nob.title ^ ".json") (Js.to_string json);
           true
         | None -> false)]
-  [txt "Download file"])
+  [txt "Save notebook"])
 
-let upload_button =
-  let input_id = "upload-input" in
+let load_button =
+  let input_id = "input" in
   T.(div [
       input ~a:[
         a_input_type `File;
@@ -107,8 +121,5 @@ let upload_button =
         a_style "display: none;"]
       ();
       label ~a:[
-        a_label_for input_id;
-        a_class ["button-style"]]
-      [txt "Upload file"]])
-
-let buttons = T.(div ~a:[a_class ["button-container"]] [download_button; upload_button])
+        a_label_for input_id]
+      [txt "Load notebook"]])

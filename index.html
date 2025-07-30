@@ -6,30 +6,16 @@
         <link rel="stylesheet" href="style.css"/>
         <script src="ace-builds/src-noconflict/ace.js" type="text/javascript" charset="utf-8"></script>
         <script src="https://cdn.jsdelivr.net/npm/chart.js@2.8.0"></script>
-        <style>
-            .button-style {
-                all: unset;
-                display: inline-block;
-                padding: 6px 12px;
-                background-color: #007BFF;
-                color: white;
-                border-radius: 4px;
-                cursor: pointer;
-                font-family: sans-serif;
-                text-align: center;
-                text-decoration: none;
-                user-select: none;
-                margin-right: 8px;
-            }
-            .button-container {
-                display: flex;
-                align-items: center;
-            }
-        </style>
     </head>
     <body>
         <nav class="navbar">
             <ul>
+                <li><button>File</button>
+                    <ul id="file-buttons">
+                        <li id="save-button"></li>
+                        <li id="load-button"></li>
+                    </ul>
+                </li>
                 <li><button>Exercises</button>
                     <ul id="nob-buttons">
                     </ul>
