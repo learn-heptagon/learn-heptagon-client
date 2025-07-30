@@ -1,4 +1,4 @@
-open Notebook
+open Page
 
 let editor1_content = "\
 node max(fst, snd : real) returns (out : real)

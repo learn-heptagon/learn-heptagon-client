@@ -3,9 +3,43 @@ open Js_of_ocaml_tyxml
 module T = Tyxml_js.Html5
 open Ezjs_ace
 
-open Notebook
+type editor_data = {
+  editor_id : int;
+  mutable editor_content : string;
+}
+
+type cell =
+  | Text of string
+  | Editor of editor_data
+
+type notebook = {
+  title : string;
+  cells : cell list;
+}
 
 let current_notebook = ref None
+
+let save_title_in_storage s =
+  Js.Optdef.case Dom_html.window##.localStorage
+    (fun () -> ())
+    (fun stor ->
+       stor##setItem (Js.string "title") (Js.string s))
+
+let get_title_from_storage () =
+  Js.Optdef.case Dom_html.window##.localStorage
+    (fun () -> None)
+    (fun stor ->
+       Js.Opt.case (stor##getItem (Js.string "title"))
+         (fun () -> None)
+         (fun s -> Some (Js.to_string s)))
+
+let get_content_from_storage id default_content =
+  Js.Optdef.case Dom_html.window##.localStorage
+    (fun () -> default_content)
+    (fun stor ->
+       Js.Opt.case (stor##getItem (Js.string ("editor_" ^ string_of_int id)))
+         (fun () -> default_content)
+         (fun s -> Js.to_string s))
 
 let set_editor_height editor =
   ignore (Js.Unsafe.fun_call(Js.Unsafe.js_expr "setEditorHeight") [|Js.Unsafe.inject editor|])
@@ -15,10 +49,13 @@ let clear_editor_selection editor =
 
 let container = Dom_html.getElementById "container"
 
-let display_notebook_cells nob container =
+let display_notebook_cells container nob =
   current_notebook := Some nob;
+  save_title_in_storage nob.title;
+
   let children = Dom.list_of_nodeList container##.childNodes in
   List.iter (fun n -> Dom.removeChild container n) children;
+
   List.iter (fun nob_cell ->
     match nob_cell with
       | Text s ->
@@ -38,10 +75,23 @@ let display_notebook_cells nob container =
         Ace.set_mode editor_struct "ace/mode/lustre";
         Ace.set_tab_size editor_struct 2;
         let my_editor = editor_struct.editor in
-        my_editor##setValue (Js.string ed.editor_content);
+        let stored_content = get_content_from_storage ed.editor_id ed.editor_content in
+        my_editor##setValue (Js.string stored_content);
+        my_editor##on (Js.string "change") (fun () ->
+          let content = Js.to_string (my_editor##getValue) in
+          ed.editor_content <- content;
+          Js.Optdef.iter Dom_html.window##.localStorage (fun stor ->
+            let key = "editor_" ^ string_of_int ed.editor_id in
+            stor##setItem (Js.string key) (Js.string content)
+          );
+        );
         set_editor_height my_editor;
         clear_editor_selection my_editor
   ) nob.cells
+
+let display_message msg =
+  let message_div = Dom_html.getElementById "message" in
+  message_div##.textContent := Js.some (Js.string msg)
 
 let save_file filename content =
   let blob = File.blob_from_string ~contentType:"text/plain" content in
@@ -83,8 +133,8 @@ let load_file ev =
                       clear_editor_selection my_editor
                     ) editors contents
                   ) else
-                    print_endline "Mismatch between number of editors and content's length"
-                | Some _ -> print_endline "Mismatch between notebooks' titles"
+                    display_message "Mismatch between number of editors and content's length"
+                | Some _ -> display_message "Mismatch between notebooks' titles"
                 | None -> ());
               Js._false
             );
@@ -112,14 +162,14 @@ let save_button =
   [txt "Save notebook"])
 
 let load_button =
-  let input_id = "input" in
+  let id = "input" in
   T.(div [
       input ~a:[
         a_input_type `File;
         a_onchange (fun ev -> load_file ev);
-        a_id input_id;
+        a_id id;
         a_style "display: none;"]
       ();
       label ~a:[
-        a_label_for input_id]
+        a_label_for id]
       [txt "Load notebook"]])
