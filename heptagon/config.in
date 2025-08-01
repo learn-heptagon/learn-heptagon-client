@@ -1,0 +1,26 @@
+srcdir      = @srcdir@
+top_srcdir  = @top_srcdir@
+prefix      = @prefix@
+exec_prefix = @exec_prefix@
+bindir      = @bindir@
+libdir      = @libdir@
+
+INSTALL= @INSTALL@
+RM=rm
+@SET_MAKE@
+
+BUILD= _build
+COMPILER=heptc
+SIMULATOR=hepts
+CTRLNBAC2EPT_TRANSLATOR=ctrl2ept
+BZREAX=bzreax
+
+INSTALL_BINDIR=$(bindir)
+INSTALL_LIBDIR=$(libdir)/heptagon
+STDLIB_DIR=@stdlib_dir@
+
+OCAMLBUILD=STDLIB=$(STDLIB_DIR) @OCAMLBUILD@ -use-ocamlfind
+
+TARGET=@targets@
+ENABLE_SIMULATOR=@enable_simulator@
+ENABLE_CTRL2EPT_TRANSLATOR=@enable_ctrl2ept@

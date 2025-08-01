@@ -1,0 +1,47 @@
+(* CHECK f1 *)
+fun f1() returns (ok : bool)
+let
+  ok = 42.0 = 42.;
+tel
+
+(* CHECK f2 *)
+fun f2() returns (ok : bool)
+let
+  ok = +150 = 150;
+tel
+
+(* CHECK f3 *)
+fun f3() returns (ok : bool)
+let
+  ok = 0x1_0_ = 16;
+tel
+
+(* CHECK f4 *)
+fun f4() returns (ok : bool)
+let
+  ok = 0b10 = 2;
+tel
+
+(* CHECK f5 *)
+fun f5() returns (ok : bool)
+let
+  ok = 0o10 = 8;
+tel
+
+(* CHECK f6 *)
+fun f6() returns (ok : bool)
+let
+  ok = 0B100 = 4;
+tel
+
+(* CHECK f7 *)
+fun f7() returns (ok : bool)
+let
+  ok = 0O100 = 64;
+tel
+
+(* CHECK main *)
+node main() returns (ok : bool)
+let
+  ok = 0b0110_1100 = 0x6C;
+tel

@@ -1,0 +1,74 @@
+const n:int = 42
+
+
+node plusone(a:int) returns (o:int)
+let
+  o = a+1;
+tel
+
+fun f() returns (o:int^n)
+let
+  o = mapi<<n>> plusone ();
+tel
+
+node g(a:int^n) returns (o:int^n)
+let
+  o = map<<n>> plusone (a);
+tel
+
+node sum_acc (a, acc_in:int) returns (acc_out:int)
+let
+  acc_out = acc_in + a;
+tel
+
+node h(a:int^n) returns (m:int)
+let
+  m = fold<<n>> sum_acc (a, 0);
+tel
+
+node sum_dup (a, acc_in:int) returns (o:int; acc_out:int)
+let
+  acc_out = acc_in + a;
+  o = acc_out;
+tel
+
+node p(a:int^n) returns (o:int^n)
+var acc:int;
+let
+  (o, acc) = mapfold<<n>> sum_dup (a, 0);
+tel
+
+node k(a,b:int^n) returns (o:int^n)
+let
+  o = map<<n>> (+) (a,b);
+tel
+
+node iter_reset(a:int^n; r:bool) returns (o:int^n)
+let
+  reset
+   o = map<<n>> plusone (a);
+  every (r & r)
+tel
+
+node m(t:int^n; a:int; i:int) returns (o:int)
+let
+  o = a * i + t[0];
+tel
+
+node itmapi(a:int^n) returns (o:int^n)
+let
+  o = mapi <<n>> m<(a)>(a);
+tel
+
+node main() returns (t1,t2,t3,t4,t5,t6:int^n;x1:int)
+var r:bool;
+let
+  t1 = f();
+  t2 = g(t1);
+  x1 = h(t2);
+  t3 = p(t2);
+  t4 = k(t1,t3);
+  r = false fby false fby true fby r;
+  t5 = iter_reset(t4,r);
+  t6 = itmapi(t5);
+tel

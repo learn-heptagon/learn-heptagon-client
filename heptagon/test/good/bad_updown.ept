@@ -1,0 +1,20 @@
+node updown(b : bool) returns (o : bool)
+var o2,on_off:bool;
+let
+  on_off = true;
+  automaton
+    state Down
+      do o2 = false until on_off then Up
+    state Up
+      do o2 = true until on_off then Down
+   end;
+   o = merge b (true-> o2) (false -> false)
+tel
+
+node main() returns (o:bool)
+var b:bool;
+let
+  b = true fby true fby false fby b;
+  o = updown(b);
+tel
+

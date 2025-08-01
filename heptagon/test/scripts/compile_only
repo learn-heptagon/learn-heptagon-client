@@ -1,0 +1,20 @@
+#!/bin/bash
+
+source scripts/config
+
+progpath=$1
+shift
+coption=$*
+
+cp $progpath $checkdir
+
+pushd $checkdir > /dev/null
+
+heptprog=`basename $progpath`
+echo $HEPTC $coption $heptprog
+$HEPTC $coption $heptprog
+res=$?
+
+popd $checkdir > /dev/null
+
+exit $res

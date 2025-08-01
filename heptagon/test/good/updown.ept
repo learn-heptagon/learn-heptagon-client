@@ -1,0 +1,16 @@
+node updown(on_off : bool) returns (o : bool)
+let
+  automaton
+    state Down
+      do o = false until on_off then Up
+    state Up
+      do o = true until on_off then Down
+   end;
+tel
+
+node main() returns (o:bool)
+var half:bool;
+let
+  o = updown(half);
+  half = true fby not half
+tel

@@ -1,0 +1,15 @@
+unsafe node hello() returns (b:bool)
+let
+  () = Iostream.printf("hello\n");
+  automaton
+  state A do
+    b = true;
+    () = Iostream.printf("hello\n");
+  end;
+tel
+
+unsafe node main() returns ()
+var b:bool;
+let
+   b = hello();
+tel

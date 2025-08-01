@@ -1,0 +1,296 @@
+#!/usr/bin/env -S ocaml str.cma unix.cma
+
+let checkdir = "_check_builds"
+
+(* script de test *)
+
+let compilo = ref "../../heptc"
+let coption = ref "-O"
+
+(* compilateurs utilises pour les tests de gen. de code *)
+
+let mlc = "mlc"
+let ocamlc = "ocamlc"
+let javac = "javac"
+let lustrec = "lustre"
+let cc = "gcc -std=c99 -I../../../lib/c -I../t1_c"
+let vhdlc = "vhdlc"
+
+(* par defaut : pas de test de generation de code *)
+
+let tomato = ref false
+let memalloc = ref false
+let ocaml = ref false
+let java = ref false
+let lustre = ref false
+let c = ref false
+let minils = ref false
+let vhdl = ref false
+
+let verbose = ref false
+
+let printf = Printf.printf
+let sprintf = Printf.sprintf
+
+let red = ref "\x1B[31m"
+let blue = ref "\x1B[34m"
+let reset = ref "\x1B[0m"
+
+let deactivate_colors () =
+  red := "";
+  blue := "";
+  reset := ""
+
+let process_lines in_ch process =
+  let rec read_line n =
+    try
+      process n (input_line in_ch);
+      read_line (n + 1);
+    with End_of_file -> ()
+  in read_line 1
+
+type file_info = {
+  mutable assert_node : string option;
+  mutable main_node : bool;
+}
+
+let check_re = Str.regexp ".*CHECK[ \\t]+\\([^ *]\\)"
+let main_re = Str.regexp ".*node[ \\t]+main([ \\t]*)"
+
+let get_file_info filename =
+  let info = { assert_node = None; main_node = false } in
+  let process_line _ s =
+    if Str.string_match check_re s 0
+    then info.assert_node <- Some (Str.matched_group 1 s);
+    if Str.string_match main_re s 0
+    then info.main_node <- true
+  in
+  process_lines (open_in filename) process_line;
+  info
+
+let slurp ich =
+  let rec read buf =
+    match input_line ich with
+    | s -> read (s::buf)
+    | exception End_of_file -> List.rev buf
+  in
+  read []
+
+let try_finalize f x finally y =
+  let res = try f x with exn -> finally y; raise exn in
+  finally y;
+  res
+
+let dump_to_file filename buf =
+  let och = open_out filename in
+  try_finalize (List.iter (output_string och)) buf close_out och
+
+let run_command commandline =
+  let ich = Unix.open_process_in commandline in
+  let log = slurp ich in
+  Unix.close_process_in ich, log
+
+let compile filename testbad =
+  let info = get_file_info filename in
+  let args_comp = String.concat " " (List.filter_map Fun.id [
+      Option.map (fun s -> "-assert " ^ s) info.assert_node;
+      if !verbose then Some "-v" else None;
+      if info.main_node then Some "-s main" else None;
+    ])
+  in
+  let commandline = sprintf "%s %s -I good %s %s 2>&1"
+                            !compilo !coption args_comp filename
+  in
+  if !verbose then printf "Compile: %s\n%!" commandline;
+  let r, log = run_command commandline in
+  dump_to_file Filename.((remove_extension (basename filename)) ^ ".log") log;
+  (match r with
+   | Unix.WEXITED rc -> rc = 0, log
+   | Unix.WSIGNALED s | Unix.WSTOPPED s -> false, log)
+
+let dir_exists path =
+  match Unix.stat path with
+  | Unix.{ st_kind = S_DIR; _ } -> true
+  | _ -> failwith (sprintf "%s is not a directory" path)
+  | exception (Unix.Unix_error (Unix.ENOENT, _, _)) -> false
+
+let indir path f =
+  let pwd = Unix.getcwd () in
+  Unix.chdir path;
+  try_finalize f () Unix.chdir pwd
+
+let files_in path ext =
+  let d = Unix.opendir path in
+  let rec read_files acc =
+    match Unix.readdir d with
+    | f when Filename.extension f = ext ->
+        read_files (Filename.concat path f :: acc)
+    | _ -> read_files acc
+    | exception End_of_file -> List.sort String.compare acc
+  in
+  try_finalize read_files [] Unix.closedir d
+
+let score = ref 0
+let max = ref 0
+
+let test_bad f =
+  if not !verbose then printf ".%!";
+  incr max;
+  if fst (compile f true)
+  then printf "\n%s* ERROR %s: should fail to compile%s\n"
+              !red f !reset
+  else incr score
+
+exception Echec of string * string list
+
+let system_ok ~err commandline =
+  if !verbose then printf "Running: %s\n%!" commandline;
+  let r, log = run_command commandline in
+  let ok = match r with
+           | Unix.WEXITED rc -> rc = 0
+           | Unix.WSIGNALED s | Unix.WSTOPPED s -> false
+  in
+  if not ok then raise (Echec (err, log))
+
+let outok_re = Str.regexp "=> 1"
+
+let system_check ~err commandline =
+  let r, log = run_command commandline in
+  let ok = match r with
+           | Unix.WEXITED rc -> rc = 0
+           | Unix.WSIGNALED s | Unix.WSTOPPED s -> false
+  in
+  if not (ok && List.for_all (fun s -> Str.string_match outok_re s 0) log)
+  then raise (Echec (err, log))
+
+let test_c eptpath base_f () =
+  List.iter (fun f ->
+    system_ok ~err:"C compilation failed."
+      (sprintf "%s -c %s > /dev/null 2>&1" cc f)) (files_in "." ".c");
+  let { assert_node; main_node } =
+      get_file_info (Filename.concat eptpath (base_f ^ ".ept"))
+  in
+  if assert_node <> None || main_node then begin
+    system_ok ~err:"Link failure." (sprintf "%s *.o -o %s 2>&1" cc base_f);
+    let step_count = 10 in
+    system_check ~err:"Run-time assertion failure."
+                 (sprintf "./%s %d >/dev/null 2>&1" base_f step_count)
+  end
+
+let test_good f =
+  if not !verbose then printf ".%!";
+  incr max;
+  try
+    let base_f = Filename.(remove_extension (basename f)) in
+    let r, log = compile f false in
+    if not r then raise (Echec ("Compilation failed.", log));
+
+    (* Compil. minils ? *)
+    if !minils then
+      system_ok ~err:"Compilation to Minils failed."
+                (sprintf "%s %s.mls > /dev/null 2>&1" mlc base_f);
+
+    (* Compil. java ? *)
+    if !java then
+      indir ("java/" ^ String.capitalize_ascii base_f) (fun () ->
+        system_ok ~err:"Compilation to Java failed."
+          (sprintf "%s -cp ../../../../lib/java:../ *.java > /dev/null" javac));
+
+    (* Compil. caml ? *)
+    if !ocaml then
+      system_ok ~err:"Compilation to Caml failed."
+                (sprintf "%s -c %s.ml > /dev/null" ocamlc base_f);
+
+    (* Compil. c ? *)
+    if !c then indir (base_f ^ "_c") (test_c "../../good" base_f);
+
+    (* Compil. VHDL ? *)
+    if !vhdl then indir (base_f ^ "_vhdl") (fun () ->
+    List.iter (fun vhdl_file ->
+      system_ok ~err:"VHDL compilation failed."
+        (sprintf "%s -a %s && %s -e %s > /dev/null 2>&1"
+                 vhdlc vhdl_file vhdlc vhdl_file)) (files_in "." ".vhd"));
+
+    incr score
+  with Echec (msg, log) ->
+    (printf "\n%s* ERROR %s: %s%s\n%!" !red f msg !reset;
+     List.iter (printf "%s\n") log)
+
+let launch_check () =
+  if not (dir_exists checkdir) then Unix.mkdir checkdir 0o777;
+  Unix.chdir checkdir;
+
+  (* les mauvais *)
+  printf "%sTest bads%s\n%!" !blue !reset;
+  List.iter test_bad (files_in "../bad" ".ept");
+
+  printf "\n%sTest goods%s\n%!" !blue !reset;
+  List.iter test_good (files_in "../good" ".ept");
+
+  printf "\n%sTest: %d/%d : %d%%%s\n"
+         !blue !score !max (100 * !score / !max) !reset
+
+let activate_clean () =
+  ignore (Unix.system (sprintf "rm -r %s" checkdir));
+  exit 0
+
+let activate_minils () =
+  minils := true
+
+let activate_java () =
+  java := true;
+  coption := !coption ^ " -target java"
+
+let activate_caml () =
+  ocaml := true;
+  coption := !coption ^ " -target caml"
+
+let activate_vhdl () =
+  vhdl := true;
+  coption := !coption ^ " -target vhdl"
+
+let activate_c () =
+  c := true;
+  coption := !coption ^ " -target c"
+
+let activate_tomato () =
+  tomato := true;
+  coption := !coption ^ " -tomato"
+
+let activate_memalloc () =
+  memalloc := true;
+  coption := !coption ^ " -memalloc"
+
+let activate_all () =
+  activate_tomato ();
+  activate_memalloc ();
+  activate_java ();
+  activate_c ()
+
+let activate_boolean () =
+  coption := !coption ^ " -bool"
+
+let activate_deadcode () =
+  coption := !coption ^ " -deadcode"
+
+let _ = Arg.(parse [
+  "-clean", Unit activate_clean, " clean build dir";
+  "-java", Unit activate_java, " test of code generation (java code)";
+  "-caml", Unit activate_caml, " test of code generation (caml code)";
+  "-lustre", Set lustre, " test of code generation (lustre code)";
+  "-mls", Unit activate_minils, " test of code generation (minils)";
+  "-vhdl", Unit activate_vhdl, " test of code generation (vhdl)";
+  "-bool", Unit activate_boolean, " test of boolean translation";
+  "-deadcode", Unit activate_deadcode, " test of deadcode removal";
+  "-tomato", Unit activate_tomato, " test of automata minimization";
+  "-memalloc", Unit activate_memalloc, " test of memory allocation";
+  "-c", Unit activate_c, " test of code generation (c code)";
+  "-all", Unit activate_all, " test all";
+  "-nocolor", Unit deactivate_colors, " do not use ANSI color sequences";
+  "-v", Set verbose, " verbose";
+  ]
+  (fun s -> coption := !coption ^ " " ^ s)
+  (sprintf "usage : %s <options> <compilo>" (Filename.basename Sys.argv.(0))))
+
+let _ = launch_check ()
+

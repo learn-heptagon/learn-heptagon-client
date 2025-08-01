@@ -1,0 +1,8 @@
+(* CHECK main *)
+node main() returns (ok : bool)
+var x, y : bool;
+let
+  reset x = true -> false every false;
+  y = true -> false;
+  ok = x = y;
+tel

@@ -1,0 +1,8 @@
+
+node main() returns (o1, o2:int; ok:bool)
+let
+  o1 = -1 fby (o1 + 1);
+  o2 = (-1) fby (o2 + 1);
+  ok = (o1 = 02);
+tel
+
