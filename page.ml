@@ -5,39 +5,6 @@ open Ezjs_ace
 
 open Notebook
 
-let by_id s = Dom_html.getElementById s
-let of_node = Tyxml_js.To_dom.of_node
-
-(** Manipulate a given console *)
-module Console = struct
-  (** Scroll to the bottom *)
-  let scroll console child =
-    console##.scrollTop := child##.offsetTop
-
-  (** Log a message *)
-  let log console_id msg =
-    let console = by_id console_id in
-    let newLine = of_node (T.(li [txt msg])) in
-    ignore (console##appendChild newLine);
-    scroll console (Js.Unsafe.coerce newLine)
-
-  (** Log an error message *)
-  let error console_id msg =
-    let console = by_id console_id in
-    let newLine = of_node (T.(li ~a:[a_class ["console-error"]] [txt msg])) in
-    ignore (console##appendChild newLine);
-    scroll console (Js.Unsafe.coerce newLine)
-
-  (** Delete all lines *)
-  let clear console_id =
-    let console = by_id console_id in
-    while Js.to_bool console##hasChildNodes do
-      Js.Opt.iter (console##.firstChild) (fun c -> Dom.removeChild console c)
-    done
-end
-
-let main_console_id = "main-console"
-
 let current_notebook = ref None
 
 let save_title_in_storage s =
@@ -67,6 +34,39 @@ let set_editor_height editor =
 
 let clear_editor_selection editor =
   ignore (Js.Unsafe.fun_call(Js.Unsafe.js_expr "clearEditorSelection") [|Js.Unsafe.inject editor|])
+
+let by_id s = Dom_html.getElementById s
+let of_node = Tyxml_js.To_dom.of_node
+
+(** Manipulate a given console *)
+module Console = struct
+  (** Scroll to the bottom *)
+  let scroll console child =
+    console##.scrollTop := child##.offsetTop
+
+  (** Log a message *)
+  let log console_id msg =
+    let console = by_id console_id in
+    let newLine = of_node (T.(li ~a:[a_class ["console-log"]] [txt msg])) in
+    ignore (console##appendChild newLine);
+    scroll console (Js.Unsafe.coerce newLine)
+
+  (** Log an error message *)
+  let error console_id msg =
+    let console = by_id console_id in
+    let newLine = of_node (T.(li ~a:[a_class ["console-error"]] [txt msg])) in
+    ignore (console##appendChild newLine);
+    scroll console (Js.Unsafe.coerce newLine)
+
+  (** Delete all lines *)
+  let clear console_id =
+    let console = by_id console_id in
+    while Js.to_bool console##hasChildNodes do
+      Js.Opt.iter (console##.firstChild) (fun c -> Dom.removeChild console c)
+    done
+end
+
+let main_console_id = "main-console"
 
 (** Show an error with [text] at [loc] in the console as well as the editor *)
 let add_error_marker (editor : unit Ace.editor) (r1, r2) (c1, c2) =
@@ -103,7 +103,7 @@ let reset_editor console_div_id (editor: unit Ace.editor) =
 
   Console.clear console_div_id
 
-let compile console_div_id editor =
+let compile_editor_code console_div_id editor =
   Sys_js.set_channel_flusher stderr (fun e -> print_error console_div_id editor e);
   reset_editor console_div_id editor;
   try
@@ -147,7 +147,7 @@ let display_notebook_cells nob =
         let my_editor = editor_struct.editor in
         let stored_content = get_content_from_storage ed.editor_id ed.editor_content in
         my_editor##setValue (Js.string stored_content);
-        compile console_div_id editor_struct;
+        compile_editor_code console_div_id editor_struct;
 
         my_editor##on (Js.string "change") (fun () ->
           Console.clear main_console_id;
@@ -157,7 +157,7 @@ let display_notebook_cells nob =
             let key = "editor_" ^ string_of_int ed.editor_id in
             stor##setItem (Js.string key) (Js.string content)
           );
-          compile console_div_id editor_struct
+          compile_editor_code console_div_id editor_struct
         );
 
         set_editor_height my_editor;
@@ -204,11 +204,12 @@ let load_file ev =
                       my_editor##setValue (Js.string c);
                       set_editor_height my_editor;
                       clear_editor_selection my_editor
-                    ) editors contents
+                    ) editors contents;
+                    Console.log main_console_id "The notebook has been successfully imported."
                   ) else (
-                    Console.error main_console_id "Mismatch between number of editors and content's length"
+                    Console.error main_console_id "Importation failed: mismatch between number of editors and content's length."
                   )
-                | Some _ -> Console.error main_console_id "Mismatch between notebooks' titles"
+                | Some _ -> Console.error main_console_id "Importation failed: mismatch between notebooks' titles."
                 | None -> ());
               Js._false
             );

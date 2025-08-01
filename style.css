@@ -153,6 +153,10 @@ ul.console .console-error {
     color: red;
 }
 
+#main-console .console-log {
+    color: blue;
+}
+
 #file-buttons label {
   display: inline-block;
   width: 100%;
