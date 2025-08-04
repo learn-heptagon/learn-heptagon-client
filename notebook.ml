@@ -4,7 +4,9 @@ type editor_data = {
 }
 
 type cell =
+  | Heading of string
   | Text of string
+  | Html of string
   | Editor of editor_data
 
 type notebook = {

@@ -105,10 +105,6 @@ button, a {
     text-decoration: underline;
 }
 
-.editor {
-    width: 80%;
-}
-
 .editor-row {
     width: 100px;
     display: block;
@@ -180,4 +176,22 @@ input.history {
   border: none;
   box-sizing: border-box;
   white-space: nowrap;
+}
+
+#container {
+  margin-left: 5%;
+  margin-right: 5%;
+}
+
+.notebook-heading {
+  padding-top: 1em;
+}
+
+.notebook-text {
+  padding-top: 1em;
+}
+
+.notebook-editor {
+  margin-top: 2em;
+  margin-left: -40;
 }

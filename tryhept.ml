@@ -30,12 +30,21 @@ let display_notebook_cells nob =
       | Text s ->
         let div = T.(div [txt s]) in
         Dom.appendChild container (of_node div)
+      | Html s ->
+        let div = Tyxml_js.To_dom.of_element (T.(div ~a:[a_class ["notebook-text"]] [])) in
+        (* let div = Dom_html.createDiv Dom_html.window##.document in *)
+        div##.innerHTML := Js.string s;
+
+        Dom.appendChild container div
+      | Heading s ->
+        let div = T.(h2 ~a:[a_class ["notebook-heading"]] [txt s]) in
+        Dom.appendChild container (of_node div)
       | Editor ed ->
         let editor_div_id = "editor-" ^ (string_of_int ed.editor_id)
         and interp_div_id = "interp-" ^ (string_of_int ed.editor_id)
         and console_div_id = "console-" ^ string_of_int ed.editor_id in
 
-        let editor_div = T.(div ~a:[a_id editor_div_id; a_class ["editor"]][])
+        let editor_div = T.(div ~a:[a_id editor_div_id; a_class ["editor"; "notebook-editor"]][])
         and interp_div = T.(div ~a:[a_id interp_div_id; a_class ["interp"]][])
         and console_div = T.(ul ~a:[a_id console_div_id; a_class ["console"]][]) in
 
