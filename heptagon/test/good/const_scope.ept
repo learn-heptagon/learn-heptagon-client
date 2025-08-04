@@ -1,5 +1,0 @@
-const nat :float = 0.0
-node main() = (nat : int)
-let
-nat = 0 fby (nat + 1)
-tel

@@ -1,3 +1,0 @@
-
-(* output : y = x^n *)
-val fun power(x:float; n:int) = (y:float)
