@@ -1,0 +1,3 @@
+[submodule "heptagon"]
+	path = heptagon
+	url = ssh://git@git.recherche.enac.fr/learn-heptagon/heptagon.git

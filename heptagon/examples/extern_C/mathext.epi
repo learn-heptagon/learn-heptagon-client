@@ -1,3 +1,0 @@
-val fun mycos(a:float) returns (o:float)
-
-val node st_cos(a:float) returns (o:float)

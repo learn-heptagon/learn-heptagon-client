@@ -1,8 +1,0 @@
-(* CHECK main *)
-node main() returns (ok : bool)
-var x, y : bool;
-let
-  reset x = (true fby false) fby false every false;
-  y = true fby false;
-  ok = x = y;
-tel

@@ -1,3 +1,0 @@
-
-(* output : random float in interval [0,1] *)
-unsafe val fun random() = (z:float)
