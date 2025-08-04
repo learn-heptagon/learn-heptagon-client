@@ -11,10 +11,14 @@ FLAGS=-use-ocamlfind -Is heptagon/compiler/ \
 SRC := \
 	notebook.ml \
 	examples.ml \
+	hept_scoping2.ml \
 	compil.ml \
+	chronogram.ml \
 	page.ml \
+	js_obc_conversion.ml \
+	simul.ml interp.ml \
 	tryhept.ml \
-	pervasives.ml
+	pervasives.ml mathlib.ml
 
 all: tryhept.js
 

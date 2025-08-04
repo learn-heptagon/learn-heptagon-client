@@ -110,6 +110,12 @@ button, a {
     width: 80%;
 }
 
+.editor-row {
+    width: 100px;
+    display: block;
+    height: 15px;
+}
+
 .error-marker {
     background-color: rgba(255, 0, 0, 0.3);
     position: absolute;
@@ -134,8 +140,16 @@ ul.console .console-error {
     color: red;
 }
 
+input, label {
+    margin:2px;
+}
+
+input.history {
+    width:3em;
+}
+
 #main-console {
-    max-height: 200px;
+    max-height: 30px;
     flex-basis: 20%;
     overflow-y: auto;
     background-color: #f5f5f5;

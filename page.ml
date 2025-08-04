@@ -4,8 +4,10 @@ module T = Tyxml_js.Html5
 open Ezjs_ace
 
 open Notebook
+open Chronogram
 
-let current_notebook = ref None
+let by_id s = Dom_html.getElementById s
+let of_node = Tyxml_js.To_dom.of_node
 
 let save_title_in_storage s =
   Js.Optdef.case Dom_html.window##.localStorage
@@ -29,14 +31,22 @@ let get_content_from_storage id default_content =
          (fun () -> default_content)
          (fun s -> Js.to_string s))
 
-let set_editor_height editor =
-  ignore (Js.Unsafe.fun_call(Js.Unsafe.js_expr "setEditorHeight") [|Js.Unsafe.inject editor|])
+(** Remove all children of a div *)
+let clear_div divid =
+  let div = by_id divid in
+  let children = Dom.list_of_nodeList div##.childNodes in
+  List.iter (fun n -> Dom.removeChild div n) children
 
-let clear_editor_selection editor =
-  ignore (Js.Unsafe.fun_call(Js.Unsafe.js_expr "clearEditorSelection") [|Js.Unsafe.inject editor|])
+let rec drop l i =
+  if i = 0 then l else drop (List.tl l) (i - 1)
 
-let by_id s = Dom_html.getElementById s
-let of_node = Tyxml_js.To_dom.of_node
+let clear_div_from divid i =
+  let div = by_id divid in
+  let children = Dom.list_of_nodeList div##.childNodes in
+  let children = drop children i in
+  List.iter (fun n -> Dom.removeChild div n) children
+
+let width divid = (by_id divid)##.offsetWidth
 
 (** Manipulate a given console *)
 module Console = struct
@@ -65,8 +75,6 @@ module Console = struct
       Js.Opt.iter (console##.firstChild) (fun c -> Dom.removeChild console c)
     done
 end
-
-let main_console_id = "main-console"
 
 (** Show an error with [text] at [loc] in the console as well as the editor *)
 let add_error_marker (editor : unit Ace.editor) (r1, r2) (c1, c2) =
@@ -103,66 +111,246 @@ let reset_editor console_div_id (editor: unit Ace.editor) =
 
   Console.clear console_div_id
 
-let compile_editor_code console_div_id editor =
-  Sys_js.set_channel_flusher stderr (fun e -> print_error console_div_id editor e);
-  reset_editor console_div_id editor;
-  try
-    let modname = Compil.prepare_module () in
-    let p = Compil.parse_program modname (Ace.get_contents editor) in
-    let p = Compil.compile_program modname p in
-    Obc_printer.print stdout p
-  with _ -> ()
+(** Generation of fresh variables *)
+module Atom = struct
+  let counter : int ref = ref 0
+  let fresh (s:string) =
+    counter := !counter+1; Printf.sprintf "%s%d" s !counter
+end
 
-let display_notebook_cells nob =
-  current_notebook := Some nob;
-  save_title_in_storage nob.title;
+let interp_hist_id = "interpreter-hist"
 
-  let container = by_id "container" in
-  let children = Dom.list_of_nodeList container##.childNodes in
-  List.iter (fun n -> Dom.removeChild container n) children;
+let input_cell isbool =
+  T.(td [if isbool then input ~a:[a_input_type `Checkbox] ()
+         else input ~a:[a_class ["history"]] ()]
+       ~a:[a_class ["history"]])
 
-  List.iter (fun nob_cell ->
-    match nob_cell with
-      | Text s ->
-        let div = T.(div [txt s]) in
-        Dom.appendChild container (of_node div)
-      | Editor ed ->
-        let editor_div_id = "editor-" ^ (string_of_int ed.editor_id)
-        and console_div_id = "console-" ^ string_of_int ed.editor_id in
+let output_cell isbool v =
+  T.(td [if isbool
+         then input ~a:([a_input_type `Checkbox; a_disabled ()]@(if v = Obc_interp.Vbool true then [a_checked ()] else [])) ()
+         else input ~a:[a_class ["history"]; a_disabled (); a_value (string_of_value v)] ()]
+       ~a:[a_class ["history"]])
 
-        let editor_div = T.(div ~a:[a_id editor_div_id; a_class ["editor"]][])
-        and console_div = T.(ul ~a:[a_id console_div_id; a_class ["console"]][]) in
+let is_boolean_type =
+  Types.(function
+         | Tid { name = "bool" } -> true
+         | _ -> false)
 
-        let div = T.(div ~a:[a_class ["editor-console"]] [editor_div; console_div]) in
-        Dom.appendChild container (of_node div);
-        let editor_struct =
-          Ace.({
-            editor_div = by_id editor_div_id;
-            editor = Ace.edit (by_id editor_div_id);
-            marks = [];
-            keybinding_menu = false
-          }) in
-        Ace.set_mode editor_struct "ace/mode/lustre";
-        Ace.set_tab_size editor_struct 2;
-        let my_editor = editor_struct.editor in
-        let stored_content = get_content_from_storage ed.editor_id ed.editor_content in
-        my_editor##setValue (Js.string stored_content);
-        compile_editor_code console_div_id editor_struct;
+let set_editor_single_line editor =
+  ignore (Js.Unsafe.fun_call(Js.Unsafe.js_expr "setEditorSingleLine") [|Js.Unsafe.inject editor|])
 
-        my_editor##on (Js.string "change") (fun () ->
-          Console.clear main_console_id;
-          let content = Js.to_string (my_editor##getValue) in
-          ed.editor_content <- content;
-          Js.Optdef.iter Dom_html.window##.localStorage (fun stor ->
-            let key = "editor_" ^ string_of_int ed.editor_id in
-            stor##setItem (Js.string key) (Js.string content)
-          );
-          compile_editor_code console_div_id editor_struct
-        );
+let show_chronogram_values hins houts =
 
-        set_editor_height my_editor;
-        clear_editor_selection my_editor
-  ) nob.cells
+    let show_values row isbool values =
+      List.iter (fun v ->
+        let cell = output_cell isbool v in
+        Dom.appendChild row (of_node cell);
+      ) values
+    in
+
+    List.iter (fun (info, rowid) ->
+      clear_div_from rowid 2;
+      show_values (by_id rowid) (is_boolean_type info.row.var_type) info.row.var_values
+    ) hins;
+
+    List.iter (fun (info, rowid) ->
+      clear_div_from rowid 2;
+      show_values (by_id rowid) (is_boolean_type info.var_type) info.var_values
+    ) houts;
+
+    (* Add a final column *)
+    List.iter (fun (info, rowid) ->
+      match info.editor with
+        | Some editor_info when editor_info.saved_expression <> "" ->
+          let nb_column = List.length info.row.var_values in
+          let value = editor_info.step_fun nb_column in
+          let cell = output_cell (is_boolean_type info.row.var_type) value in
+          Dom.appendChild (by_id rowid) (of_node cell)
+        | _ ->
+          let cell = input_cell (is_boolean_type info.row.var_type) in
+          Dom.appendChild (by_id rowid) (of_node cell);
+    ) hins
+
+let reset_inputs reset_fun hins houts =
+  List.iter (fun (info, _) ->
+    info.row.var_values <- [];
+    match info.editor with
+      | Some editor_info -> editor_info.reset_fun()
+      | None -> ()
+    ) hins;
+    List.iter (fun (info, _) ->
+      info.var_values <- []
+    ) houts;
+  reset_fun ()
+
+let create_input_editor console_div_id reset_fun hins houts info rowid =
+  let input_editor_div_id = Atom.fresh "input-editor" in
+  let input_editor_div = T.(div ~a:[a_id input_editor_div_id; a_class ["editor"; "editor-row"]][]) in
+  Dom.appendChild (by_id rowid) (of_node input_editor_div);
+
+  let editor_struct =
+    Ace.({
+      editor_div = by_id input_editor_div_id;
+      editor = Ace.edit (by_id input_editor_div_id);
+      marks = [];
+      keybinding_menu = false
+    }) in
+  set_editor_single_line editor_struct.editor;
+  Ace.set_mode editor_struct "ace/mode/lustre";
+  Ace.set_tab_size editor_struct 2;
+  (match info.editor with
+    | Some editor_info -> editor_struct.editor##setValue (Js.string editor_info.saved_expression)
+    | None -> ()
+  );
+
+  Ace.(editor_struct.editor)##on (Js.string "change") (fun () ->
+      Sys_js.set_channel_flusher stderr (fun e -> print_error console_div_id editor_struct e);
+      reset_editor console_div_id editor_struct;
+      let editor_value = Ace.get_contents editor_struct in
+      if editor_value <> "" then
+        (try
+          let lexbuf = Lexing.from_string editor_value in
+          let program =
+            Compil.build_input_program lexbuf
+                                       info.row.var_name
+                                       (Hept_scoping2.translate_into_hept_parsetree_ty info.row.var_type)
+          in
+          let obc_program = Compil.compile_program "main" program in
+          Obc_printer.print stdout obc_program;
+
+          let is_pclass desc =
+            match desc with
+              | Obc.Pclass _ -> true
+              | _ -> false
+          in
+          let cls =
+            match List.find is_pclass obc_program.p_desc with
+              | Obc.Pclass a_class -> a_class
+              | _ -> failwith "Expected a class"
+          in
+
+          let mem = ref (Obc_interp.reset obc_program cls.cd_name.name) in
+          let last_value = ref (Obc_interp.Vbool false) in
+          let next_column = ref 0 in
+          info.editor <- Some {
+            reset_fun = (fun () ->
+              mem := Obc_interp.reset obc_program cls.cd_name.name;
+              next_column := 0);
+            step_fun = (fun i ->
+              if i >= !next_column then (
+                let inputs = [] in
+                let (outputs, new_mem) = Obc_interp.step obc_program cls.cd_name.name inputs !mem in
+                mem := new_mem;
+                last_value := List.hd outputs;
+                next_column := !next_column + 1
+              );
+              !last_value);
+            saved_expression = editor_value
+          };
+        with Errors.Error -> ())
+      else info.editor <- None;
+      reset_inputs reset_fun hins houts;
+      show_chronogram_values hins houts
+    )
+
+let rec show_chronogram console_div_id divid (st: Chronogram.t) reset_fun step_fun =
+
+  let headid = "hist-head" in
+
+  let hins = List.map (fun info -> info, Atom.fresh "row") st.inputs
+  and houts = List.map (fun row -> row, Atom.fresh "row") st.outputs in
+
+  let hhead = T.(tr ~a:[a_id headid] [th [txt ""]; th [txt ""]]) in
+  let tabl = T.(table ~a:[]
+                  (hhead
+                   :: List.map (fun (info, rowid) -> T.(tr ~a:[a_id rowid] [th [txt info.row.var_name; txt " = "]])) hins
+                   @ List.map (fun (info, rowid) -> T.(tr ~a:[a_id rowid] [th [txt info.var_name; txt " = "]; th [txt ""]])) houts)) in
+
+  let div = by_id divid in
+  (try Dom.removeChild div (by_id interp_hist_id) with _ -> ());
+
+  (* This is where the DOM elements of the table are created *)
+  let interp_div = of_node T.(div ~a:[a_id interp_hist_id] [tabl]) in
+  Dom.appendChild div interp_div;
+
+  (* Add editors in order to put an expression in Heptagon *)
+  List.iter (fun (info, rowid) -> create_input_editor console_div_id reset_fun hins houts info rowid) hins;
+
+  let get_row_input row : Dom_html.inputElement Js.t =
+    let opt_get o = Js.Opt.get o (fun _ -> failwith "get_row_input") in
+    opt_get (opt_get row##.lastChild)##.firstChild |> Js.Unsafe.coerce in
+
+  (* Get the input values. If they are not all available, raise *)
+  let get_latest_inputs () =
+    List.map (
+      fun (info, rowid) ->
+        let input = get_row_input (by_id rowid) in
+        if is_boolean_type info.row.var_type then if Js.to_bool input##.checked then "true" else "false"
+        else input##.value |> Js.to_string
+    ) hins in
+
+  let step_button =
+    T.(button ~a:[
+      a_onclick (fun _ ->
+        (try
+          let inputs = get_latest_inputs () in
+          let inputs = List.map2 (fun (info, _) s -> parse_input info.row.var_type s) hins inputs in
+          (* Save the values *)
+          List.iter2 (fun (info, _) v ->
+            info.row.var_values <- info.row.var_values @ [v]
+          ) hins inputs;
+          let outputs = step_fun inputs in
+          List.iter2 (fun (info, _) v ->
+            info.var_values <- info.var_values @ [v]
+          ) houts outputs;
+          show_chronogram_values hins houts
+        with e -> Console.error console_div_id (Printexc.to_string e));
+      true)]
+    [txt "step"])
+  in
+
+  let reset_button =
+    T.(button ~a:[
+      a_onclick (fun _ ->
+        (try
+          reset_inputs reset_fun hins houts;
+          show_chronogram_values hins houts
+        with e -> Console.error console_div_id (Printexc.to_string e));
+      true)]
+    [txt "reset"])
+  in
+
+  Dom.appendChild interp_div (of_node step_button);
+  Dom.appendChild interp_div (of_node reset_button);
+
+  show_chronogram_values hins houts
+
+let create_select divid (options : string list) default (onselect : string -> unit) =
+  let options = List.map (fun s -> T.(option ~a:[] (txt s))) options in
+  let select = of_node T.(select ~a:[] options) in
+  let select = Js.Unsafe.coerce select in
+  Dom.appendChild (by_id divid) select;
+  select##.onchange :=
+    (fun e -> onselect (Js.to_string select##.value); true);
+  select##.value := default;
+  onselect default
+
+let create_canvas divid width height : Dom_html.canvasElement Js.t =
+  let canvas = of_node T.(canvas ~a:[a_width width; a_height height] []) in
+  Dom.appendChild (by_id divid) canvas;
+  Js.Unsafe.coerce canvas
+
+(** New implementations **)
+
+let current_notebook = ref None
+
+let main_console_id = "main-console"
+
+let set_editor_height editor =
+  ignore (Js.Unsafe.fun_call(Js.Unsafe.js_expr "setEditorHeight") [|Js.Unsafe.inject editor|])
+
+let clear_editor_selection editor =
+  ignore (Js.Unsafe.fun_call(Js.Unsafe.js_expr "clearEditorSelection") [|Js.Unsafe.inject editor|])
 
 let save_file filename content =
   let blob = File.blob_from_string ~contentType:"text/plain" content in
