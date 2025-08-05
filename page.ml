@@ -215,7 +215,7 @@ let create_input_editor console_div_id reset_fun hins houts info rowid =
                                        info.row.var_name
                                        (Hept_scoping2.translate_into_hept_parsetree_ty info.row.var_type)
           in
-          let obc_program = Compil.compile_program "main" program in
+          let (_, obc_program) = Compil.compile_program "main" program in
           Obc_printer.print stdout obc_program;
 
           let is_pclass desc =

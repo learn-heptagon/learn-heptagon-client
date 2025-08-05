@@ -44,11 +44,11 @@ let compile_program modname p =
   (* Process the Heptagon AST *)
   let p = Hept_compiler.compile_program p log_c in
   (* Compile Heptagon to MiniLS *)
-  let p = Hept2mls.program p in
+  let mls_p = Hept2mls.program p in
   (* Output the .mls *)
-  Mls_printer.print minils_c p;
+  Mls_printer.print minils_c mls_p;
   (* Process the MiniLS AST *)
-  let p = Mls_compiler.compile_program p log_c in
+  let p = Mls_compiler.compile_program mls_p log_c in
   (* Compile MiniLS to Obc *)
   Callgraph.reset_info ();
   let p = match Callgraph.program p with [p] -> p | _ -> invalid_arg "Callgraph.program" in
@@ -56,7 +56,8 @@ let compile_program modname p =
   (* Obc transformations and printing *)
   let p = Obc_compiler.compile_program log_c p in
   Mls2seq.write_obc_file p;
-  close_all (); p
+  close_all ();
+  (mls_p, p)
 
 let build_input_program lexbuf var_name var_type =
   let ast = Hept_parser_scoper.parse Hept_parser.inline_exp lexbuf in
