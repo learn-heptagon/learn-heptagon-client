@@ -13,6 +13,7 @@ let string_of_mls_program prog =
 let compile_editor_code verify_button_div verify_button_div_id console_div_id interp_div_id title editor =
   Sys_js.set_channel_flusher stderr (fun e -> print_error console_div_id editor e);
   reset_editor console_div_id editor;
+  clear_div verify_button_div_id;
   try
     let modname = Compil.prepare_module () in
     let p = Compil.parse_program modname (Ace.get_contents editor) in
@@ -31,8 +32,7 @@ let compile_editor_code verify_button_div verify_button_div_id console_div_id in
     in
     Dom.appendChild (of_node verify_button_div) (of_node verify_button)
   with _ ->
-    clear_div interp_div_id;
-    clear_div verify_button_div_id
+    clear_div interp_div_id
 
 let display_notebook_cells nob =
   current_notebook := Some nob;
