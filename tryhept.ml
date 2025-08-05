@@ -116,3 +116,6 @@ let () =
   download_mathlib ();
   display_first Examples.my_notebooks Examples.notebook1;
   generate_navbar Examples.my_notebooks
+
+(* let () = *)
+(*   Verify.do_send_verify "this is not a valid program" *)
