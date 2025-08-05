@@ -15,7 +15,7 @@ let compile_editor_code console_div_id interp_div_id title editor =
     let p = Compil.compile_program modname p in
     Obc_printer.print stdout p;
     Interp.load_interp console_div_id interp_div_id p (Interp.interpreter_of_example title p)
-  with _ -> ()
+  with _ -> clear_div interp_div_id
 
 let display_notebook_cells nob =
   current_notebook := Some nob;
