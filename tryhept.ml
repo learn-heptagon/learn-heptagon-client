@@ -22,6 +22,7 @@ let compile_editor_code verify_button_div verify_button_div_id console_div_id in
     Interp.load_interp console_div_id interp_div_id obc_program (Interp.interpreter_of_example title obc_program);
 
     let mls_string = string_of_mls_program mls_program in
+    print_endline mls_string;
     let verify_button =
       T.(button ~a:[
         a_onclick (fun _ ->
