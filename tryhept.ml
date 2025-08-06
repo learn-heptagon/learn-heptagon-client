@@ -7,7 +7,7 @@ open Notebook
 open Page
 
 let string_of_mls_program prog =
-  Mls_printer.print_program Format.str_formatter prog;
+  Kind2_printer.print_program Format.str_formatter prog;
   Format.flush_str_formatter ()
 
 let compile_editor_code verify_button_div verify_button_div_id console_div_id interp_div_id title editor =
