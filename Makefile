@@ -10,7 +10,7 @@ FLAGS=-use-ocamlfind -Is heptagon/compiler/ \
 
 SRC := \
 	notebook.ml \
-	examples.ml \
+	notebooks.ml \
 	hept_scoping2.ml \
 	compil.ml \
 	chronogram.ml \
@@ -23,8 +23,18 @@ SRC := \
 
 all: tryhept.js
 
-examples.ml:
-	ocaml preproc_examples.ml
+# examples.ml:
+# 	ocaml preproc_examples.ml
+
+NOTEBOOKS = cours1 cours2 cours4
+NOTEBOOK_DIRS = $(foreach dir,$(NOTEBOOKS),notebooks/$(dir))
+NOTEBOOK_FILES = $(foreach dir, $(NOTEBOOK_DIRS), $(dir)/*)
+
+mknotebooks.byte: notebook.ml mknotebooks.ml
+	ocamlfind ocamlc -o $@ -package yojson yojson.cma $^
+
+notebooks.ml: mknotebooks.byte $(NOTEBOOK_FILES)
+	ocamlrun $< $(NOTEBOOK_DIRS)
 
 tryhept.byte: $(SRC)
 	@echo "${bold}Building tryhept...${normal}"
@@ -42,7 +52,7 @@ tryhept.js: tryhept.byte
 	ocaml embed_epci.ml $^ > $@
 
 clean:
-	rm -rf _build/ *.byte tryhept.js pervasives.epci
+	rm -rf _build/ *.byte tryhept.js pervasives.epci notebooks.ml
 
 .PHONY:
 	all clean extraction
