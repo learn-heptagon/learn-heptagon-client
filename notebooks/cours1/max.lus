@@ -1,0 +1,4 @@
+node max(fst, snd : real) returns (out : real)
+let
+    (* TODO *)
+tel

@@ -135,5 +135,8 @@ let download_mathlib () =
 let () =
   download_pervasives ();
   download_mathlib ();
-  display_first Examples.my_notebooks Examples.notebook1;
-  generate_navbar Examples.my_notebooks
+  display_first Notebooks.notebooks (List.hd Notebooks.notebooks);
+  generate_navbar Notebooks.notebooks
+
+(* let () = *)
+(*   Verify.do_send_verify "this is not a valid program" *)

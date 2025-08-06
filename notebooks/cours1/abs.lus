@@ -1,0 +1,4 @@
+node abs(x : real) returns (out : real)
+let
+    (* TODO *)
+tel
