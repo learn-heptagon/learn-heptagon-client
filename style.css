@@ -195,3 +195,44 @@ input.history {
   margin-top: 2em;
   margin-left: -40;
 }
+
+.valid-decoration,
+.ace_gutter-active-line.valid-decoration
+{
+    background-color: rgba(0, 155, 0, 0.3);
+    color: green;
+}
+
+.invalid-decoration,
+.ace_gutter-active-line.invalid-decoration
+{
+    background-color: rgba(255, 0, 0, 0.3);
+    color: red;
+}
+
+.spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid #ccc;
+  border-top: 2px solid #333;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.hidden {
+  display: none;
+}
+
+.wrapper {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}

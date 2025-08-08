@@ -6,32 +6,73 @@ open Ezjs_ace
 open Notebook
 open Page
 
+open Js_of_ocaml_lwt
+let (let*) = Lwt.bind
+
 let string_of_mls_program prog =
   Kind2_printer.print_program Format.str_formatter prog;
   Format.flush_str_formatter ()
 
-let compile_editor_code verify_button_div verify_button_div_id console_div_id interp_div_id title editor =
+let highlight_line editor line is_valid =
+  ignore (Js.Unsafe.fun_call (Js.Unsafe.js_expr "highlightLine") [| Js.Unsafe.inject editor; Js.Unsafe.inject line; Js.Unsafe.inject is_valid |])
+
+let clear_all_highlights editor =
+  ignore (Js.Unsafe.fun_call (Js.Unsafe.js_expr "clearAllHighlights") [| Js.Unsafe.inject editor |])
+
+let disable_button btn =
+  ignore (btn##.classList##add (Js.string "pressed"));
+  btn##.disabled := Js._true
+
+let release_button btn =
+  ignore (btn##.classList##remove (Js.string "pressed"));
+  btn##.disabled := Js._false
+
+let compile_editor_code wrapper_div wrapper_div_id console_div_id interp_div_id title editor =
   Sys_js.set_channel_flusher stderr (fun e -> print_error console_div_id editor e);
   reset_editor console_div_id editor;
-  clear_div verify_button_div_id;
+  clear_div wrapper_div_id;
   try
     let modname = Compil.prepare_module () in
-    let p = Compil.parse_program modname (Ace.get_contents editor) in
+    let source_code = Ace.get_contents editor in
+    let p = Compil.parse_program modname source_code in
     let (mls_program, obc_program) = Compil.compile_program modname p in
     Obc_printer.print stdout obc_program;
     Interp.load_interp console_div_id interp_div_id obc_program (Interp.interpreter_of_example title obc_program);
 
     let mls_string = string_of_mls_program mls_program in
     print_endline mls_string;
-    let verify_button =
-      T.(button ~a:[
-        a_onclick (fun _ ->
-          Verify.do_send_verify mls_string;
-          true
-        )
-      ] [txt "Verify properties"])
-    in
-    Dom.appendChild (of_node verify_button_div) (of_node verify_button)
+
+    let objs_lines = Verify.get_objectives_lines mls_program in
+
+    if objs_lines <> [] then (
+      let spinner = Dom_html.createSpan Dom_html.document in
+      spinner##.className := Js.string "spinner hidden";
+
+      let verify_button =
+        T.(button ~a:[
+          a_onclick (fun ev ->
+            let btn = Js.Opt.get (Dom_html.CoerceTo.button (Dom_html.eventTarget ev)) (fun () -> assert false) in
+            disable_button btn;
+            spinner##.classList##remove (Js.string "hidden");
+
+            Verify.do_send_verify mls_string;
+            Lwt.async (fun () ->
+              let* props_infos = Verify.get_properties_infos mls_string in
+              List.iter2 (fun obj_line (_, is_valid) -> highlight_line editor.editor obj_line is_valid) objs_lines props_infos;
+
+              spinner##.classList##add (Js.string "hidden");
+              release_button btn;
+              Lwt.return ()
+            );
+            true)
+        ] [txt "Verify properties"])
+      in
+      let wrapper = Dom_html.createDiv Dom_html.document in
+      wrapper##.className := Js.string "wrapper";
+      Dom.appendChild wrapper (of_node verify_button);
+      Dom.appendChild wrapper spinner;
+      Dom.appendChild (of_node wrapper_div) wrapper
+    );
   with _ ->
     clear_div interp_div_id
 
@@ -60,16 +101,16 @@ let display_notebook_cells nob =
       | Editor ed ->
         let id = string_of_int ed.editor_id in
         let editor_div_id = "editor-" ^ id
-        and verify_button_div_id = "verify-button-" ^ id
+        and wrapper_div_id = "wrapper-" ^ id
         and interp_div_id = "interp-" ^ id
         and console_div_id = "console-" ^ id in
 
         let editor_div = T.(div ~a:[a_id editor_div_id; a_class ["editor"; "notebook-editor"]][])
-        and verify_button_div = T.(div ~a:[a_id verify_button_div_id; a_class ["verify-button"]] [])
+        and wrapper_div = T.(div ~a:[a_id wrapper_div_id; a_class ["wrapper"]] [])
         and interp_div = T.(div ~a:[a_id interp_div_id; a_class ["interp"]][])
         and console_div = T.(ul ~a:[a_id console_div_id; a_class ["console"]][]) in
 
-        let div = T.(div ~a:[a_class ["container"]] [editor_div; verify_button_div; interp_div; console_div]) in
+        let div = T.(div ~a:[a_class ["container"]] [editor_div; wrapper_div; interp_div; console_div]) in
         Dom.appendChild container (of_node div);
 
         let editor_struct =
@@ -85,7 +126,7 @@ let display_notebook_cells nob =
         let stored_content = get_content_from_storage ed.editor_id ed.editor_content in
         my_editor##setValue (Js.string stored_content);
 
-        compile_editor_code verify_button_div verify_button_div_id console_div_id interp_div_id nob.title editor_struct;
+        compile_editor_code wrapper_div wrapper_div_id console_div_id interp_div_id nob.title editor_struct;
         my_editor##on (Js.string "change") (fun () ->
           Console.clear main_console_id;
           let content = Js.to_string (my_editor##getValue) in
@@ -94,7 +135,8 @@ let display_notebook_cells nob =
             let key = "editor_" ^ (string_of_int ed.editor_id) in
             stor##setItem (Js.string key) (Js.string content)
           );
-          compile_editor_code verify_button_div verify_button_div_id console_div_id interp_div_id nob.title editor_struct
+          clear_all_highlights my_editor;
+          compile_editor_code wrapper_div wrapper_div_id console_div_id interp_div_id nob.title editor_struct
         );
 
         set_editor_height my_editor;
@@ -138,6 +180,3 @@ let () =
   download_mathlib ();
   display_first Notebooks.notebooks (List.hd Notebooks.notebooks);
   generate_navbar Notebooks.notebooks
-
-(* let () = *)
-(*   Verify.do_send_verify "this is not a valid program" *)

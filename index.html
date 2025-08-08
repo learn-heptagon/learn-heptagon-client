@@ -70,6 +70,20 @@
             function clearEditorSelection(editor) {
                 editor.clearSelection();
             }
+            function highlightLine(editor, line, isValid) {
+                if (isValid) {
+                    editor.session.addGutterDecoration(line - 1, "valid-decoration");
+                } else {
+                    editor.session.addGutterDecoration(line - 1, "invalid-decoration");
+                }
+            }
+            function clearAllHighlights(editor) {
+                const lastRow = editor.session.getLength();
+                for (let row = 0; row < lastRow; row++) {
+                    editor.session.removeGutterDecoration(row, "valid-decoration");
+                    editor.session.removeGutterDecoration(row, "invalid-decoration");
+                }
+            }
         </script>
         <script src="tryhept.js"></script>
     </body>
