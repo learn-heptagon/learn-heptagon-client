@@ -55,10 +55,13 @@ let compile_editor_code wrapper_div wrapper_div_id console_div_id interp_div_id 
             disable_button btn;
             spinner##.classList##remove (Js.string "hidden");
 
-            Verify.do_send_verify mls_string;
+            (* Verify.do_send_verify mls_string; *)
             Lwt.async (fun () ->
               let* props_infos = Verify.get_properties_infos mls_string in
-              List.iter2 (fun obj_line (_, is_valid) -> highlight_line editor.editor obj_line is_valid) objs_lines props_infos;
+
+              (try
+                 List.iter2 (fun obj_line (_, is_valid) -> highlight_line editor.editor obj_line is_valid) objs_lines props_infos
+               with _ -> Console.error console_div_id "Kind2 parse error (Should not happen, call the teacher)");
 
               spinner##.classList##add (Js.string "hidden");
               release_button btn;
