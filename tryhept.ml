@@ -51,6 +51,7 @@ let compile_editor_code wrapper_div wrapper_div_id console_div_id interp_div_id 
       let verify_button =
         T.(button ~a:[
           a_onclick (fun ev ->
+            Console.clear console_div_id;
             let btn = Js.Opt.get (Dom_html.CoerceTo.button (Dom_html.eventTarget ev)) (fun () -> assert false) in
             disable_button btn;
             spinner##.classList##remove (Js.string "hidden");
@@ -59,9 +60,10 @@ let compile_editor_code wrapper_div wrapper_div_id console_div_id interp_div_id 
             Lwt.async (fun () ->
               let* props_infos = Verify.get_properties_infos mls_string in
 
-              (try
-                 List.iter2 (fun obj_line (_, is_valid) -> highlight_line editor.editor obj_line is_valid) objs_lines props_infos
-               with _ -> Console.error console_div_id "Kind2 parse error (Should not happen, call the teacher)");
+              if props_infos <> [] then
+                (try
+                   List.iter2 (fun obj_line (_, is_valid) -> highlight_line editor.editor obj_line is_valid) objs_lines props_infos
+                 with _ -> Console.error console_div_id "Kind2 parse error (Should not happen, call the teacher)");
 
               spinner##.classList##add (Js.string "hidden");
               release_button btn;

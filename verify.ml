@@ -11,14 +11,14 @@ let kind2_url =
 let send_verify prog =
   let content = Yojson.Safe.to_string (`Assoc [("prog", `String prog)]) in
   (* Send the request *)
-  let* res = XmlHttpRequest.perform ~contents:(`String content) kind2_url in
-  (* Handle the response *)
-  Lwt.return () (* TODO *)
+  XmlHttpRequest.perform
+    ~content_type:"application/json"
+    ~contents:(`String content) kind2_url
 
 let get_properties_infos prog =
-  let content = Yojson.Safe.to_string (`Assoc [("prog", `String prog)]) in
   (* Send the request *)
-  let* res = XmlHttpRequest.perform ~contents:(`String content) kind2_url in
+  let* res = send_verify prog in
+  (* Handle the response *)
   match res.code with
     | 200 ->
       (try
@@ -70,6 +70,6 @@ let get_objectives_lines (p: Minils.program) : int list =
           | None -> [])
       | _ -> []) p.p_desc
 
-(** Wrapper for Lwt async stuff *)
-let do_send_verify prog =
-  Lwt.async (fun _ -> send_verify prog)
+(* (\** Wrapper for Lwt async stuff *\) *)
+(* let do_send_verify prog = *)
+(*   Lwt.async (fun _ -> send_verify prog) *)
