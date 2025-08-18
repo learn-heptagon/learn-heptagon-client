@@ -58,11 +58,16 @@ let compile_editor_code wrapper_div wrapper_div_id console_div_id interp_div_id 
 
             (* Verify.do_send_verify mls_string; *)
             Lwt.async (fun () ->
-              let* props_infos = Verify.get_properties_infos mls_string in
+              let* props_info = Verify.get_properties_info mls_string in
 
-              if props_infos <> [] then
+              if props_info <> [] then
                 (try
-                   List.iter2 (fun obj_line (_, is_valid) -> highlight_line editor.editor obj_line is_valid) objs_lines props_infos
+                   List.iter2 (fun obj_line (line, valid, counterexample) ->
+                     highlight_line editor.editor obj_line valid;
+                     (match counterexample with
+                       | Some ce when not valid -> Console.log console_div_id ("Counterexample: " ^ ce)
+                       | _ -> ())
+                   ) objs_lines props_info
                  with _ -> Console.error console_div_id "Kind2 parse error (Should not happen, call the teacher)");
 
               spinner##.classList##add (Js.string "hidden");

@@ -15,7 +15,60 @@ let send_verify prog =
     ~content_type:"application/json"
     ~contents:(`String content) kind2_url
 
-let get_properties_infos prog =
+let format_counterexample (json : Yojson.Safe.t) =
+  match json with
+    | `List (ce_list : Yojson.Safe.t list) ->
+      let filtered_blocks =
+        List.filter_map
+          (fun (blk : Yojson.Safe.t) ->
+            match blk with
+              | `Assoc (blk_assoc : (string * Yojson.Safe.t) list) ->
+                (match List.assoc_opt "streams" blk_assoc with
+                  | Some (`List (streams : Yojson.Safe.t list)) ->
+                    let lines =
+                      List.filter_map
+                        (fun (s : Yojson.Safe.t) ->
+                          match s with
+                            | `Assoc s_assoc ->
+                              let name =
+                                match List.assoc_opt "name" s_assoc with
+                                  | Some (`String n) -> n
+                                  | _ -> "?"
+                              in
+                              let cls =
+                                match List.assoc_opt "class" s_assoc with
+                                  | Some (`String c) -> c
+                                  | _ -> "?"
+                              in
+                              let value =
+                                match List.assoc_opt "instantValues" s_assoc with
+                                  | Some (`List ((`List [ _step; `Assoc frac ]) :: _)) ->
+                                    let num =
+                                      match List.assoc_opt "num" frac with
+                                        | Some (`Int n) -> n
+                                        | _ -> 0
+                                    in
+                                    let den =
+                                      match List.assoc_opt "den" frac with
+                                        | Some (`Int d) -> d
+                                        | _ -> 1
+                                    in
+                                    Printf.sprintf "%d/%d" num den
+                                  | _ -> "?"
+                              in
+                              if cls = "input" || cls = "output" then Some (Printf.sprintf "%s = %s" name value) else None
+                            | _ -> None
+                        ) streams
+                    in
+                    Some (String.concat "; " lines)
+                  | _ -> None)
+              | _ -> None
+          ) ce_list
+      in
+      String.concat "\n" filtered_blocks
+    | _ -> "?"
+
+let get_properties_info prog =
   (* Send the request *)
   let* res = send_verify prog in
   (* Handle the response *)
@@ -31,26 +84,31 @@ let get_properties_infos prog =
                   (match item with
                     | `Assoc fields when List.assoc_opt "objectType" fields = Some (`String "property") ->
                       let line =
-                         match List.assoc_opt "line" fields with
+                        match List.assoc_opt "line" fields with
                           | Some (`Int l) -> l
                           | _ -> -1
-                       in
-                       let valid =
-                         match List.assoc_opt "answer" fields with
+                      in
+                      let valid =
+                        match List.assoc_opt "answer" fields with
                           | Some (`Assoc ans_fields) -> (
-                             match List.assoc_opt "value" ans_fields with
+                            match List.assoc_opt "value" ans_fields with
                               | Some (`String "valid") -> true
                               | _ -> false)
                           | _ -> false
-                       in
-                       Some (line, valid)
+                      in
+                      let counterexample =
+                        match List.assoc_opt "counterExample" fields with
+                          | Some json -> Some (format_counterexample json)
+                          | _ -> None
+                      in
+                      Some (line, valid, counterexample)
                     | _ -> None)
                 ) items
             | _ -> []
         in
 
-        (* Sort line numbers in ascending order*)
-        let sorted_props = List.sort (fun (x, _) (y, _) -> compare x y) props in
+        (* Sort the list of properties by their line number in ascending order *)
+        let sorted_props = List.sort (fun (line1, _, _) (line2, _, _) -> compare line1 line2) props in
 
         Lwt.return sorted_props
       with Yojson.Json_error msg ->
