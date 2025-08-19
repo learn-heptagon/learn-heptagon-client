@@ -325,6 +325,75 @@ let rec show_chronogram console_div_id divid (st: Chronogram.t) reset_fun step_f
 
   show_chronogram_values hins houts
 
+type container_ids = {
+  editor_div_id : string;
+  wrapper_div_id : string;
+  chronos_div_id : string;
+  interp_div_id : string;
+  console_div_id : string;
+}
+
+let show_static_chronogram chrono_div_id obj_line ce (ids : container_ids) =
+  let div = Dom_html.createDiv Dom_html.document in
+  div##.id := Js.string chrono_div_id;
+
+  let msg_div = Dom_html.createDiv Dom_html.document in
+  let msg_text =
+    String.concat "\n"
+      (List.map (fun (block_name, _) ->
+        Printf.sprintf "Invalid property at line %d (node '%s'). Counterexample(s):" obj_line block_name
+      ) ce)
+  in
+  msg_div##.textContent := Js.some (Js.string msg_text);
+  Dom.appendChild div msg_div;
+
+  let var_names =
+    let names = ref [] in
+    List.iter (fun (_, streams) ->
+      List.iter (fun (name, _) ->
+        if not (List.mem name !names) then names := !names @ [name]
+      ) streams
+    ) ce;
+    !names
+  in
+
+  let num_steps =
+    match ce with
+    | [] -> 0
+    | (_, streams) :: _ ->
+        let (_, values) = List.hd streams in
+        List.length values
+  in
+
+  let header =
+    let step_cells =
+      List.init num_steps (fun i -> T.td ~a:[T.a_style "padding: 0 10px"] [T.txt (string_of_int (i + 1))])
+    in
+    T.tr (T.td ~a:[T.a_style "padding: 0 10px"] [T.txt "Step"] :: step_cells)
+  in
+
+  let rec get_value var_name step_index ce =
+    match ce with
+      | [] -> ""
+      | (_, streams) :: rest ->
+        match List.find_opt (fun (name, _) -> name = var_name) streams with
+          | Some (_, values) -> List.nth values step_index
+          | None -> get_value var_name step_index rest
+  in
+
+  let rows =
+    List.map (fun var_name ->
+      let value_cells =
+        List.init num_steps (fun i -> T.td ~a:[T.a_style "padding: 0 10px"] [T.txt (get_value var_name i ce)])
+      in
+      T.tr (T.td ~a:[T.a_style "padding: 0 10px"] [T.txt var_name] :: value_cells)
+    ) var_names
+  in
+
+  let table = T.table ~a:[] (header :: rows) in
+  Dom.appendChild div (of_node table);
+  Dom.appendChild (by_id ids.chronos_div_id) div
+
 let create_select divid (options : string list) default (onselect : string -> unit) =
   let options = List.map (fun s -> T.(option ~a:[] (txt s))) options in
   let select = of_node T.(select ~a:[] options) in

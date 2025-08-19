@@ -9,14 +9,6 @@ open Page
 open Js_of_ocaml_lwt
 let (let*) = Lwt.bind
 
-type container_ids = {
-  editor_div_id : string;
-  wrapper_div_id : string;
-  chronos_div_id : string;
-  interp_div_id : string;
-  console_div_id : string;
-}
-
 let string_of_mls_program prog =
   Kind2_printer.print_program Format.str_formatter prog;
   Format.flush_str_formatter ()
@@ -60,6 +52,7 @@ let compile_editor_code title editor (ids : container_ids) =
       let verify_button =
         T.(button ~a:[
           a_onclick (fun ev ->
+            clear_div ids.chronos_div_id;
             Console.clear ids.console_div_id;
             let btn = Js.Opt.get (Dom_html.CoerceTo.button (Dom_html.eventTarget ev)) (fun () -> assert false) in
             disable_button btn;
@@ -68,26 +61,16 @@ let compile_editor_code title editor (ids : container_ids) =
             (* Verify.do_send_verify mls_string; *)
             Lwt.async (fun () ->
               let* props_info = Verify.get_properties_info mls_string in
-
               if props_info <> [] then
                 (try
                   List.iter2 (fun obj_line (_, valid, counterexamples) ->
                     highlight_line editor.editor obj_line valid;
-
-                    let chrono_div_id = ids.chronos_div_id ^ "-obj-" ^ (string_of_int obj_line) in
-                    let chrono_div = Dom_html.createDiv Dom_html.document in
-                    chrono_div##.id := Js.string chrono_div_id;
-                    Dom.appendChild (by_id ids.chronos_div_id) chrono_div;
-
                     (match counterexamples with
                       | Some ce when not valid ->
-                        List.iter (fun (block_name, streams) ->
-                          Printf.printf "Invalid property at line %d (node '%s').\nCounterexample(s):\n" obj_line block_name;
-                          List.iter (fun (name, values) ->
-                            Printf.printf "%s = [%s]\n" name (String.concat ", " values)
-                          ) streams
-                        ) ce
-                      | _ -> ())
+                        let chrono_div_id = ids.chronos_div_id ^ "-obj-" ^ (string_of_int obj_line) in
+                        show_static_chronogram chrono_div_id obj_line ce ids
+                      | _ -> ());
+
                   ) objs_lines props_info
                 with _ -> Console.error ids.console_div_id "Kind2 parse error (Should not happen, call the teacher)");
 
