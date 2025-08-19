@@ -81,8 +81,8 @@ let compile_editor_code title editor (ids : container_ids) =
 
                     (match counterexamples with
                       | Some ce when not valid ->
-                        List.iter (fun (i, streams) ->
-                          Printf.printf "Invalid property at line %d (node %d).\nCounterexample(s):\n" obj_line i;
+                        List.iter (fun (block_name, streams) ->
+                          Printf.printf "Invalid property at line %d (node '%s').\nCounterexample(s):\n" obj_line block_name;
                           List.iter (fun (name, values) ->
                             Printf.printf "%s = [%s]\n" name (String.concat ", " values)
                           ) streams

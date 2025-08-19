@@ -15,14 +15,19 @@ let send_verify prog =
     ~content_type:"application/json"
     ~contents:(`String content) kind2_url
 
-let format_counterexamples (json : Yojson.Safe.t) : (int * (string * string list) list) list =
+let format_counterexamples (json : Yojson.Safe.t) : (string * (string * string list) list) list =
   match json with
     | `List ce_list ->
-      List.mapi (fun i blk ->
-        let ce_list =
-          match blk with
-            | `Assoc blk_assoc ->
-              (match List.assoc_opt "streams" blk_assoc with
+      List.filter_map (fun blk ->
+        match blk with
+          | `Assoc blk_assoc ->
+            let block_name =
+              match List.assoc_opt "name" blk_assoc with
+                | Some (`String n) -> n
+                | _ -> "?"
+            in
+            let ce_list =
+              match List.assoc_opt "streams" blk_assoc with
                 | Some (`List streams) ->
                   List.filter_map (fun s ->
                     match s with
@@ -31,37 +36,37 @@ let format_counterexamples (json : Yojson.Safe.t) : (int * (string * string list
                           match List.assoc_opt "name" s_assoc with
                             | Some (`String n) -> n
                             | _ -> "?"
-                          in
-                          let cls =
-                            match List.assoc_opt "class" s_assoc with
-                              | Some (`String c) -> c
-                              | _ -> "?"
-                          in
-                          (match List.assoc_opt "instantValues" s_assoc with
-                            | Some (`List instants) ->
-                              let values =
-                                List.map (fun v ->
-                                  match v with
-                                    | `List [_step; `Assoc frac] ->
-                                      let num =
-                                        match List.assoc_opt "num" frac with Some (`Int n) -> n | _ -> 0
-                                      in
-                                      let den =
-                                        match List.assoc_opt "den" frac with Some (`Int d) -> d | _ -> 1
-                                      in
-                                      Printf.sprintf "%d/%d" num den
-                                    | `List [_step; `Bool b] -> string_of_bool b
-                                    | _ -> "?"
-                                ) instants
-                              in
-                              if cls = "input" || cls = "output" then Some (name, values) else None
-                            | _ -> None)
+                        in
+                        let cls =
+                          match List.assoc_opt "class" s_assoc with
+                            | Some (`String c) -> c
+                            | _ -> "?"
+                        in
+                        (match List.assoc_opt "instantValues" s_assoc with
+                          | Some (`List instants) ->
+                            let values =
+                              List.map (fun v ->
+                                match v with
+                                  | `List [_step; `Assoc frac] ->
+                                    let num =
+                                      match List.assoc_opt "num" frac with Some (`Int n) -> n | _ -> 0
+                                    in
+                                    let den =
+                                      match List.assoc_opt "den" frac with Some (`Int d) -> d | _ -> 1
+                                    in
+                                    Printf.sprintf "%d/%d" num den
+                                  | `List [_step; `Bool b] -> string_of_bool b
+                                  | _ -> "?"
+                              ) instants
+                            in
+                            if cls = "input" || cls = "output" then Some (name, values) else None
+                          | _ -> None)
                       | _ -> None
                   ) streams
-                | _ -> [])
-            | _ -> []
-        in
-        (i + 1, ce_list)
+                | _ -> []
+            in
+            Some (block_name, ce_list)
+          | _ -> None
       ) ce_list
     | _ -> []
 
