@@ -15,58 +15,55 @@ let send_verify prog =
     ~content_type:"application/json"
     ~contents:(`String content) kind2_url
 
-let format_counterexample (json : Yojson.Safe.t) =
+let format_counterexamples (json : Yojson.Safe.t) : (int * (string * string list) list) list =
   match json with
-    | `List (ce_list : Yojson.Safe.t list) ->
-      let filtered_blocks =
-        List.filter_map
-          (fun (blk : Yojson.Safe.t) ->
-            match blk with
-              | `Assoc (blk_assoc : (string * Yojson.Safe.t) list) ->
-                (match List.assoc_opt "streams" blk_assoc with
-                  | Some (`List (streams : Yojson.Safe.t list)) ->
-                    let lines =
-                      List.filter_map
-                        (fun (s : Yojson.Safe.t) ->
-                          match s with
-                            | `Assoc s_assoc ->
-                              let name =
-                                match List.assoc_opt "name" s_assoc with
-                                  | Some (`String n) -> n
-                                  | _ -> "?"
+    | `List ce_list ->
+      List.mapi (fun i blk ->
+        let ce_list =
+          match blk with
+            | `Assoc blk_assoc ->
+              (match List.assoc_opt "streams" blk_assoc with
+                | Some (`List streams) ->
+                  List.filter_map (fun s ->
+                    match s with
+                      | `Assoc s_assoc ->
+                        let name =
+                          match List.assoc_opt "name" s_assoc with
+                            | Some (`String n) -> n
+                            | _ -> "?"
+                          in
+                          let cls =
+                            match List.assoc_opt "class" s_assoc with
+                              | Some (`String c) -> c
+                              | _ -> "?"
+                          in
+                          (match List.assoc_opt "instantValues" s_assoc with
+                            | Some (`List instants) ->
+                              let values =
+                                List.map (fun v ->
+                                  match v with
+                                    | `List [_step; `Assoc frac] ->
+                                      let num =
+                                        match List.assoc_opt "num" frac with Some (`Int n) -> n | _ -> 0
+                                      in
+                                      let den =
+                                        match List.assoc_opt "den" frac with Some (`Int d) -> d | _ -> 1
+                                      in
+                                      Printf.sprintf "%d/%d" num den
+                                    | `List [_step; `Bool b] -> string_of_bool b
+                                    | _ -> "?"
+                                ) instants
                               in
-                              let cls =
-                                match List.assoc_opt "class" s_assoc with
-                                  | Some (`String c) -> c
-                                  | _ -> "?"
-                              in
-                              let value =
-                                match List.assoc_opt "instantValues" s_assoc with
-                                  | Some (`List ((`List [ _step; `Assoc frac ]) :: _)) ->
-                                    let num =
-                                      match List.assoc_opt "num" frac with
-                                        | Some (`Int n) -> n
-                                        | _ -> 0
-                                    in
-                                    let den =
-                                      match List.assoc_opt "den" frac with
-                                        | Some (`Int d) -> d
-                                        | _ -> 1
-                                    in
-                                    Printf.sprintf "%d/%d" num den
-                                  | _ -> "?"
-                              in
-                              if cls = "input" || cls = "output" then Some (Printf.sprintf "%s = %s" name value) else None
-                            | _ -> None
-                        ) streams
-                    in
-                    Some (String.concat "; " lines)
-                  | _ -> None)
-              | _ -> None
-          ) ce_list
-      in
-      String.concat "\n" filtered_blocks
-    | _ -> "?"
+                              if cls = "input" || cls = "output" then Some (name, values) else None
+                            | _ -> None)
+                      | _ -> None
+                  ) streams
+                | _ -> [])
+            | _ -> []
+        in
+        (i + 1, ce_list)
+      ) ce_list
+    | _ -> []
 
 let get_properties_info prog =
   (* Send the request *)
@@ -96,12 +93,12 @@ let get_properties_info prog =
                               | _ -> false)
                           | _ -> false
                       in
-                      let counterexample =
+                      let counterexamples =
                         match List.assoc_opt "counterExample" fields with
-                          | Some json -> Some (format_counterexample json)
+                          | Some json -> Some (format_counterexamples json)
                           | _ -> None
                       in
-                      Some (line, valid, counterexample)
+                      Some (line, valid, counterexamples)
                     | _ -> None)
                 ) items
             | _ -> []

@@ -9,6 +9,14 @@ open Page
 open Js_of_ocaml_lwt
 let (let*) = Lwt.bind
 
+type container_ids = {
+  editor_div_id : string;
+  wrapper_div_id : string;
+  chronos_div_id : string;
+  interp_div_id : string;
+  console_div_id : string;
+}
+
 let string_of_mls_program prog =
   Kind2_printer.print_program Format.str_formatter prog;
   Format.flush_str_formatter ()
@@ -27,17 +35,18 @@ let release_button btn =
   ignore (btn##.classList##remove (Js.string "pressed"));
   btn##.disabled := Js._false
 
-let compile_editor_code wrapper_div wrapper_div_id console_div_id interp_div_id title editor =
-  Sys_js.set_channel_flusher stderr (fun e -> print_error console_div_id editor e);
-  reset_editor console_div_id editor;
-  clear_div wrapper_div_id;
+let compile_editor_code title editor (ids : container_ids) =
+  Sys_js.set_channel_flusher stderr (fun e -> print_error ids.console_div_id editor e);
+  reset_editor ids.console_div_id editor;
+  clear_div ids.wrapper_div_id;
+  clear_div ids.chronos_div_id;
   try
     let modname = Compil.prepare_module () in
     let source_code = Ace.get_contents editor in
     let p = Compil.parse_program modname source_code in
     let (mls_program, obc_program) = Compil.compile_program modname p in
     Obc_printer.print stdout obc_program;
-    Interp.load_interp console_div_id interp_div_id obc_program (Interp.interpreter_of_example title obc_program);
+    Interp.load_interp ids.console_div_id ids.interp_div_id obc_program (Interp.interpreter_of_example title obc_program);
 
     let mls_string = string_of_mls_program mls_program in
     print_endline mls_string;
@@ -51,7 +60,7 @@ let compile_editor_code wrapper_div wrapper_div_id console_div_id interp_div_id 
       let verify_button =
         T.(button ~a:[
           a_onclick (fun ev ->
-            Console.clear console_div_id;
+            Console.clear ids.console_div_id;
             let btn = Js.Opt.get (Dom_html.CoerceTo.button (Dom_html.eventTarget ev)) (fun () -> assert false) in
             disable_button btn;
             spinner##.classList##remove (Js.string "hidden");
@@ -62,13 +71,25 @@ let compile_editor_code wrapper_div wrapper_div_id console_div_id interp_div_id 
 
               if props_info <> [] then
                 (try
-                   List.iter2 (fun obj_line (line, valid, counterexample) ->
-                     highlight_line editor.editor obj_line valid;
-                     (match counterexample with
-                       | Some ce when not valid -> Console.log console_div_id ("Counterexample: " ^ ce)
-                       | _ -> ())
-                   ) objs_lines props_info
-                 with _ -> Console.error console_div_id "Kind2 parse error (Should not happen, call the teacher)");
+                  List.iter2 (fun obj_line (_, valid, counterexamples) ->
+                    highlight_line editor.editor obj_line valid;
+
+                    let chrono_div_id = ids.chronos_div_id ^ "-obj-" ^ (string_of_int obj_line) in
+                    let chrono_div = Dom_html.createDiv Dom_html.document in
+                    chrono_div##.id := Js.string chrono_div_id;
+                    Dom.appendChild (by_id ids.chronos_div_id) chrono_div;
+
+                    (match counterexamples with
+                      | Some ce when not valid ->
+                        List.iter (fun (i, streams) ->
+                          Printf.printf "Invalid property at line %d (node %d).\nCounterexample(s):\n" obj_line i;
+                          List.iter (fun (name, values) ->
+                            Printf.printf "%s = [%s]\n" name (String.concat ", " values)
+                          ) streams
+                        ) ce
+                      | _ -> ())
+                  ) objs_lines props_info
+                with _ -> Console.error ids.console_div_id "Kind2 parse error (Should not happen, call the teacher)");
 
               spinner##.classList##add (Js.string "hidden");
               release_button btn;
@@ -77,14 +98,20 @@ let compile_editor_code wrapper_div wrapper_div_id console_div_id interp_div_id 
             true)
         ] [txt "Verify properties"])
       in
-      let wrapper = Dom_html.createDiv Dom_html.document in
-      wrapper##.className := Js.string "wrapper";
+      let wrapper = by_id ids.wrapper_div_id in
       Dom.appendChild wrapper (of_node verify_button);
-      Dom.appendChild wrapper spinner;
-      Dom.appendChild (of_node wrapper_div) wrapper
+      Dom.appendChild wrapper spinner
     );
   with _ ->
-    clear_div interp_div_id
+    clear_div ids.interp_div_id
+
+let make_container_ids id = {
+  editor_div_id = "editor-" ^ id;
+  wrapper_div_id = "wrapper-" ^ id;
+  chronos_div_id = "chronos-" ^ id;
+  interp_div_id = "interp-" ^ id;
+  console_div_id = "console-" ^ id;
+}
 
 let display_notebook_cells nob =
   current_notebook := Some nob;
@@ -109,24 +136,25 @@ let display_notebook_cells nob =
         let div = T.(h2 ~a:[a_class ["notebook-heading"]] [txt s]) in
         Dom.appendChild container (of_node div)
       | Editor ed ->
-        let id = string_of_int ed.editor_id in
-        let editor_div_id = "editor-" ^ id
-        and wrapper_div_id = "wrapper-" ^ id
-        and interp_div_id = "interp-" ^ id
-        and console_div_id = "console-" ^ id in
+        let ids = make_container_ids (string_of_int ed.editor_id) in
+        let editor_div = T.(div ~a:[a_id ids.editor_div_id; a_class ["editor"; "notebook-editor"]][])
+        and wrapper_div = T.(div ~a:[a_id ids.wrapper_div_id; a_class ["wrapper"]][])
+        and chronos_div = T.(div ~a:[a_id ids.chronos_div_id; a_class ["chronos"]][])
+        and interp_div = T.(div ~a:[a_id ids.interp_div_id; a_class ["interp"]][])
+        and console_div = T.(ul ~a:[a_id ids.console_div_id; a_class ["console"]][]) in
 
-        let editor_div = T.(div ~a:[a_id editor_div_id; a_class ["editor"; "notebook-editor"]][])
-        and wrapper_div = T.(div ~a:[a_id wrapper_div_id; a_class ["wrapper"]] [])
-        and interp_div = T.(div ~a:[a_id interp_div_id; a_class ["interp"]][])
-        and console_div = T.(ul ~a:[a_id console_div_id; a_class ["console"]][]) in
-
-        let div = T.(div ~a:[a_class ["container"]] [editor_div; wrapper_div; interp_div; console_div]) in
+        let div = T.(div ~a:[a_class ["container"]]
+          [ editor_div;
+            wrapper_div;
+            chronos_div;
+            interp_div;
+            console_div]) in
         Dom.appendChild container (of_node div);
 
         let editor_struct =
           Ace.({
-            editor_div = by_id editor_div_id;
-            editor = Ace.edit (by_id editor_div_id);
+            editor_div = by_id ids.editor_div_id;
+            editor = Ace.edit (by_id ids.editor_div_id);
             marks = [];
             keybinding_menu = false
           }) in
@@ -136,7 +164,7 @@ let display_notebook_cells nob =
         let stored_content = get_content_from_storage ed.editor_id ed.editor_content in
         my_editor##setValue (Js.string stored_content);
 
-        compile_editor_code wrapper_div wrapper_div_id console_div_id interp_div_id nob.title editor_struct;
+        compile_editor_code nob.title editor_struct ids;
         my_editor##on (Js.string "change") (fun () ->
           Console.clear main_console_id;
           let content = Js.to_string (my_editor##getValue) in
@@ -146,7 +174,7 @@ let display_notebook_cells nob =
             stor##setItem (Js.string key) (Js.string content)
           );
           clear_all_highlights my_editor;
-          compile_editor_code wrapper_div wrapper_div_id console_div_id interp_div_id nob.title editor_struct
+          compile_editor_code nob.title editor_struct ids
         );
 
         set_editor_height my_editor;
