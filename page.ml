@@ -253,7 +253,7 @@ let create_input_editor console_div_id reset_fun hins houts info rowid =
       show_chronogram_values hins houts
     )
 
-let rec show_chronogram console_div_id divid (st: Chronogram.t) reset_fun step_fun =
+let show_chronogram console_div_id divid (st: Chronogram.t) reset_fun step_fun =
 
   let headid = "hist-head" in
 
@@ -325,17 +325,20 @@ let rec show_chronogram console_div_id divid (st: Chronogram.t) reset_fun step_f
 
   show_chronogram_values hins houts
 
+type editor_mode = Simulate | Verify
+
 type container_ids = {
   editor_div_id : string;
   wrapper_div_id : string;
-  chronos_div_id : string;
-  interp_div_id : string;
+  result_div_id : string;
   console_div_id : string;
+  mutable current_mode : editor_mode;
 }
 
 let show_static_chronogram chrono_div_id obj_line ce (ids : container_ids) =
   let div = Dom_html.createDiv Dom_html.document in
   div##.id := Js.string chrono_div_id;
+  div##.classList##add (Js.string "invalid-decoration");
 
   let msg_div = Dom_html.createDiv Dom_html.document in
   let msg_text =
@@ -392,7 +395,7 @@ let show_static_chronogram chrono_div_id obj_line ce (ids : container_ids) =
 
   let table = T.table ~a:[] (header :: rows) in
   Dom.appendChild div (of_node table);
-  Dom.appendChild (by_id ids.chronos_div_id) div
+  Dom.appendChild (by_id ids.result_div_id) div
 
 let create_select divid (options : string list) default (onselect : string -> unit) =
   let options = List.map (fun s -> T.(option ~a:[] (txt s))) options in

@@ -1,5 +1,6 @@
 :root {
     --primary-color: #af0e00;
+    --result-color: #ffa075;
 }
 
 body {
@@ -127,9 +128,9 @@ ul.console {
     line-height: 25px;
     padding-left: 5px;
 }
-ul.console li {
-    border-bottom: solid 1px #80808038;
-}
+/* ul.console li { */
+/*     border-bottom: solid 1px #80808038; */
+/* } */
 
 ul.console .console-error {
     color: red;
@@ -145,7 +146,7 @@ input.history {
 
 #main-console {
     max-height: 30px;
-    flex-basis: 20%;
+    /* flex-basis: 20%; */
     overflow-y: auto;
     background-color: #f5f5f5;
     list-style-type: none;
@@ -232,7 +233,35 @@ input.history {
 }
 
 .wrapper {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
+  display: flex;
+  /* display: inline-flex; */
+  /* align-items: center; */
+  /* gap: 6px; */
+  /* border-bottom: 1px solid #AAAAAA; */
+}
+
+.wrapper.hidden {
+  display: none;
+}
+
+.wrapper::after {
+  content: '';
+  flex-grow: 1;
+  border-bottom: 1px solid #ddd;
+}
+
+.wrapper button {
+  border-bottom: 1px solid #ddd;
+}
+
+.wrapper .selected {
+  background-color: white;
+  border: 1px solid #ddd;
+  border-bottom: none;
+}
+
+.result {
+  border: 1px solid #ddd;
+  border-top: none;
+  padding: .5em;
 }
