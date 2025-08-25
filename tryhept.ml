@@ -10,6 +10,19 @@ open Js_of_ocaml_lwt
 let (let*) = Lwt.bind
 
 let string_of_mls_program prog =
+  Mls_printer.print_program Format.str_formatter prog;
+  Format.flush_str_formatter ()
+
+let string_of_obc_program prog =
+  Obc_printer.print_prog Format.str_formatter prog;
+  Format.flush_str_formatter ()
+
+let js_string_of_obc_program prog =
+  let prog = Obc2javascript.program prog in
+  Javascript_printer.program Format.str_formatter prog;
+  Format.flush_str_formatter ()
+
+let kind2_string_of_mls_program prog =
   Kind2_printer.print_program Format.str_formatter prog;
   Format.flush_str_formatter ()
 
@@ -30,7 +43,7 @@ let release_button btn =
 let display_simulate_results editor ids obc_program =
   Interp.load_interp ids.console_div_id ids.result_div_id obc_program (Interp.interpreter_of_example "" obc_program)
 
-let display_verify_results editor ids mls_string objectives =
+let display_verify_results editor ids kind2_string objectives =
   clear_div ids.result_div_id;
   Console.clear ids.console_div_id;
 
@@ -39,7 +52,7 @@ let display_verify_results editor ids mls_string objectives =
   Dom.appendChild (by_id ids.result_div_id) spinner;
 
   Lwt.async (fun () ->
-    let* props_info = Verify.get_properties_info mls_string in
+    let* props_info = Verify.get_properties_info kind2_string in
     Page.clear_div ids.result_div_id;
     if props_info <> [] then
       (try
@@ -56,10 +69,17 @@ let display_verify_results editor ids mls_string objectives =
           Dom.appendChild (by_id ids.result_div_id) (of_node oktext)
        with _ -> Console.error ids.console_div_id "Kind2 parse error (Should not happen, call the teacher)");
 
-    (* spinner##.classList##add (Js.string "hidden"); *)
-    (* release_button btn; *)
     Lwt.return ()
   )
+
+let display_output ids content =
+  clear_div ids.result_div_id;
+  let divid = ids.result_div_id^"-editor" in
+  let div = of_node (T.(div ~a:[a_id divid] [])) in
+  Dom.appendChild (by_id ids.result_div_id) div;
+  let ed = Page.create_readonly_editor divid "ace/mode/lustre" in
+  Ace.set_contents ed content;
+  set_editor_height ed.editor
 
 let compile_editor_code (title: string) editor (ids : container_ids) =
   Sys_js.set_channel_flusher stderr (fun e -> print_error ids.console_div_id editor e);
@@ -76,9 +96,7 @@ let compile_editor_code (title: string) editor (ids : container_ids) =
     let source_code = Ace.get_contents editor in
     let p = Compil.parse_program modname source_code in
     let (mls_program, obc_program) = Compil.compile_program modname p in
-    let mls_string = string_of_mls_program mls_program in
-    print_endline mls_string;
-    Obc_printer.print stdout obc_program;
+    (* Obc_printer.print stdout obc_program; *)
 
     let objectives = Verify.get_objectives_lines mls_program in
 
@@ -86,37 +104,57 @@ let compile_editor_code (title: string) editor (ids : container_ids) =
 
     let simul_button = Tyxml_js.To_dom.of_button (T.(button [txt "Simulate"])) in
     let verify_button = Tyxml_js.To_dom.of_button (T.(button [txt "Verify properties"])) in
+    let minils_button = Tyxml_js.To_dom.of_button (T.(button [txt "Minils IR"])) in
+    let obc_button = Tyxml_js.To_dom.of_button (T.(button [txt "Obc IR"])) in
+    let js_button = Tyxml_js.To_dom.of_button (T.(button [txt "JS output"])) in
+    let kind2_button = Tyxml_js.To_dom.of_button (T.(button [txt "Kind2 output"])) in
 
-    let buttons = [simul_button; verify_button] in
+    let modes = [Simulate; Verify; Minils; Obc; Js; Kind2] in
+
+    let button_of_mode = function
+        | Simulate -> simul_button
+        | Verify -> verify_button
+        | Minils -> minils_button
+        | Obc -> obc_button
+        | Js -> js_button
+        | Kind2 -> kind2_button
+    in
 
     let switch_mode () =
       let selected_class = Js.string "selected" in
-      List.iter (fun b -> b##.classList##remove selected_class) buttons;
+      List.iter (fun m -> (button_of_mode m)##.classList##remove selected_class) modes;
+      (button_of_mode ids.current_mode)##.classList##add selected_class;
       match ids.current_mode with
         | Simulate ->
-          simul_button##.classList##add selected_class;
           display_simulate_results editor ids obc_program
         | Verify ->
-          verify_button##.classList##add selected_class;
-          display_verify_results editor ids mls_string objectives
+          display_verify_results editor ids (kind2_string_of_mls_program mls_program) objectives
+        | Minils ->
+          display_output ids (string_of_mls_program mls_program)
+        | Obc ->
+          display_output ids (string_of_obc_program obc_program)
+        | Js ->
+          display_output ids (js_string_of_obc_program obc_program)
+        | Kind2 ->
+          display_output ids (kind2_string_of_mls_program mls_program)
     in
 
-    simul_button##.onclick :=
-        Dom_html.handler (fun _ ->
-          ids.current_mode <- Simulate;
-          switch_mode ();
-          Js.bool true
-        );
-    verify_button##.onclick :=
-        Dom_html.handler (fun _ ->
-          ids.current_mode <- Verify;
-          switch_mode ();
-          Js.bool true
-        );
+    List.iter (fun m ->
+      (button_of_mode m)##.onclick :=
+          Dom_html.handler (fun _ ->
+            ids.current_mode <- m;
+            switch_mode ();
+            Js.bool true
+          )
+    ) modes;
 
     Dom.appendChild wrapper simul_button;
     if objectives <> [] then Dom.appendChild wrapper verify_button
     else if ids.current_mode = Verify then ids.current_mode <- Simulate;
+    Dom.appendChild wrapper minils_button;
+    Dom.appendChild wrapper obc_button;
+    Dom.appendChild wrapper js_button;
+    Dom.appendChild wrapper kind2_button;
 
     switch_mode ()
   with _ -> (
@@ -168,15 +206,8 @@ let display_notebook_cells nob =
             console_div]) in
         Dom.appendChild container (of_node div);
 
-        let editor_struct =
-          Ace.({
-            editor_div = by_id ids.editor_div_id;
-            editor = Ace.edit (by_id ids.editor_div_id);
-            marks = [];
-            keybinding_menu = false
-          }) in
+        let editor_struct = Page.create_editor ids.editor_div_id in
         Ace.set_mode editor_struct "ace/mode/lustre";
-        Ace.set_tab_size editor_struct 2;
         let my_editor = editor_struct.editor in
         let stored_content = get_content_from_storage ed.editor_id ed.editor_content in
         my_editor##setValue (Js.string stored_content);

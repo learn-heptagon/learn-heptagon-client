@@ -48,7 +48,6 @@ module JsInterpreter(P : sig
     let js_prog = Obc2javascript.program P.prog in
     Javascript_printer.program Format.str_formatter js_prog;
     let js_code = Format.flush_str_formatter () in
-    print_endline js_code;
     let js_code = js_code ^ "new "^(String.capitalize_ascii P.classname)^"()" in
     js_eval js_code
 

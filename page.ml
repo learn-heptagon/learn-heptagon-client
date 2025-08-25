@@ -183,23 +183,33 @@ let reset_inputs reset_fun hins houts =
     ) houts;
   reset_fun ()
 
+let create_editor div_id =
+  let div = by_id div_id in
+  let ed = Ace.({
+                 editor_div = div;
+                 editor = Ace.edit div;
+                 marks = [];
+                 keybinding_menu = false
+           }) in
+  Ace.set_tab_size ed 2;
+  ed
+
+let create_readonly_editor div_id lang =
+  let ed = create_editor div_id in
+  Ace.set_mode ed lang;
+  ed.editor##setReadOnly (Js.bool true);
+  ed
+
 let create_input_editor console_div_id reset_fun hins houts info rowid =
   let input_editor_div_id = Atom.fresh "input-editor" in
   let input_editor_div = T.(div ~a:[a_id input_editor_div_id; a_class ["editor"; "editor-row"]][]) in
   Dom.appendChild (by_id rowid) (of_node input_editor_div);
 
-  let editor_struct =
-    Ace.({
-      editor_div = by_id input_editor_div_id;
-      editor = Ace.edit (by_id input_editor_div_id);
-      marks = [];
-      keybinding_menu = false
-    }) in
+  let editor_struct = create_editor input_editor_div_id in
   set_editor_single_line editor_struct.editor;
   Ace.set_mode editor_struct "ace/mode/lustre";
-  Ace.set_tab_size editor_struct 2;
   (match info.editor with
-    | Some editor_info -> editor_struct.editor##setValue (Js.string editor_info.saved_expression)
+    | Some editor_info -> Ace.set_contents editor_struct editor_info.saved_expression
     | None -> ()
   );
 
@@ -325,7 +335,7 @@ let show_chronogram console_div_id divid (st: Chronogram.t) reset_fun step_fun =
 
   show_chronogram_values hins houts
 
-type editor_mode = Simulate | Verify
+type editor_mode = Simulate | Verify | Minils | Obc | Js | Kind2
 
 type container_ids = {
   editor_div_id : string;
