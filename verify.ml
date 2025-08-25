@@ -5,7 +5,9 @@ let (let*) = Lwt.bind
 
 (** URL that the programs to verify should be sent to *)
 let kind2_url =
-  Option.get (Url.url_of_string (Printf.sprintf "%sverify" Url.Current.as_string))
+  let port = Option.fold ~none:"" ~some:(Printf.sprintf ":%d") Url.Current.port in
+  let url = Printf.sprintf "%s//%s%s/verify" Url.Current.protocol Url.Current.host port in
+  Option.get (Url.url_of_string url)
 
 (** Send a verification request for [prog] to the kind2 server, and handle the result *)
 let send_verify prog =

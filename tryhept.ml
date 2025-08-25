@@ -9,6 +9,12 @@ open Page
 open Js_of_ocaml_lwt
 let (let*) = Lwt.bind
 
+let debug_mode =
+  let args = Url.Current.arguments in
+  match List.assoc_opt "debug" args with
+  | Some "true" -> true
+  | _ -> false
+
 let string_of_mls_program prog =
   Mls_printer.print_program Format.str_formatter prog;
   Format.flush_str_formatter ()
@@ -151,10 +157,13 @@ let compile_editor_code (title: string) editor (ids : container_ids) =
     Dom.appendChild wrapper simul_button;
     if objectives <> [] then Dom.appendChild wrapper verify_button
     else if ids.current_mode = Verify then ids.current_mode <- Simulate;
-    Dom.appendChild wrapper minils_button;
-    Dom.appendChild wrapper obc_button;
-    Dom.appendChild wrapper js_button;
-    Dom.appendChild wrapper kind2_button;
+
+    if debug_mode then (
+      Dom.appendChild wrapper minils_button;
+      Dom.appendChild wrapper obc_button;
+      Dom.appendChild wrapper js_button;
+      Dom.appendChild wrapper kind2_button
+    );
 
     switch_mode ()
   with _ -> (
