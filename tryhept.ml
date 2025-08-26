@@ -321,6 +321,36 @@ let get_stored_token () =
     (fun () -> None)
     (fun jsstr -> Some (Js.to_string jsstr))
 
+let rec dialog_box () =
+  let window = Dom_html.window in
+  let choice = window##confirm (Js.string "Is this your first connection?") in
+  if Js.to_bool choice then
+    (* Generate a new random token *)
+    let* t = User.create_user () in
+    match t with
+      | Some nt -> store_token nt; Lwt.return nt
+      | None -> Lwt.fail_with "Failed to create user"
+  else
+    (* Ask the user to enter his token *)
+    enter_token window
+
+and enter_token window =
+  let token_js = window##prompt (Js.string "Enter your token:") (Js.string "") in
+  if Js.Opt.test token_js then
+    let token = Js.to_string (Js.Opt.get token_js (fun () -> Js.string "")) in
+    if String.trim token = "" then (
+      window##alert (Js.string "Token cannot be empty, please try again.");
+      enter_token window
+    ) else
+      let* valid_token = User.get_user token in
+      match valid_token with
+        | Some t -> store_token t; Lwt.return t
+        | None ->
+          window##alert (Js.string "Invalid token, please try again.");
+          enter_token window
+  else
+    dialog_box ()
+
 let ensure_user () =
   match get_stored_token () with
     | Some token ->
@@ -332,18 +362,9 @@ let ensure_user () =
           (* If invalid, create a new user *)
           let* t = User.create_user () in
           (match t with
-            | Some nt ->
-              store_token nt;
-              Lwt.return nt
+            | Some nt -> store_token nt; Lwt.return nt
             | None -> Lwt.fail_with "Failed to create user"))
-    | None ->
-      (* No token stored, create a new user *)
-      let* t = User.create_user () in
-      (match t with
-        | Some nt ->
-          store_token nt;
-          Lwt.return nt
-        | None -> Lwt.fail_with "Failed to create user")
+    | None -> dialog_box ()
 
 let () =
   download_pervasives ();
