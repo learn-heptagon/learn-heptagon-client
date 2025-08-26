@@ -9,8 +9,27 @@ open Page
 open Js_of_ocaml_lwt
 let (let*) = Lwt.bind
 
+let debug_mode =
+  let args = Url.Current.arguments in
+  match List.assoc_opt "debug" args with
+  | Some "true" -> true
+  | _ -> false
+
 let string_of_mls_program prog =
+  Mls_printer.print_program Format.str_formatter prog;
+  Format.flush_str_formatter ()
+
+let kind2_string_of_mls_program prog =
   Kind2_printer.print_program Format.str_formatter prog;
+  Format.flush_str_formatter ()
+
+let string_of_obc_program prog =
+  Obc_printer.print_prog Format.str_formatter prog;
+  Format.flush_str_formatter ()
+
+let js_string_of_obc_program prog =
+  let prog = Obc2javascript.program prog in
+  Javascript_printer.program Format.str_formatter prog;
   Format.flush_str_formatter ()
 
 let highlight_line editor line is_valid =
@@ -27,73 +46,172 @@ let release_button btn =
   ignore (btn##.classList##remove (Js.string "pressed"));
   btn##.disabled := Js._false
 
-let compile_editor_code title editor (ids : container_ids) =
+let display_simulate_results editor ids obc_program =
+  Interp.load_interp ids.console_div_id ids.result_div_id obc_program (Interp.interpreter_of_example "" obc_program)
+
+let spinner = of_node T.(span ~a:[a_class ["spinner"]] [])
+
+let display_verify_results editor ids kind2_string objectives =
+  clear_div ids.result_div_id;
+  Console.clear ids.console_div_id;
+
+  let div = by_id ids.result_div_id in
+  Dom.appendChild div spinner;
+
+  Lwt.async (fun () ->
+    let* props_info = Verify.get_properties_info kind2_string in
+    Page.clear_div ids.result_div_id;
+    if props_info <> [] then
+      (try
+        List.iter2 (fun obj_line (_, valid, counterexamples) ->
+          highlight_line Ace.(editor.editor) obj_line valid;
+          (match counterexamples with
+            | Some ce when not valid ->
+              let chrono_div_id = ids.result_div_id ^ "-obj-" ^ (string_of_int obj_line) in
+              show_static_chronogram chrono_div_id obj_line ce ids
+            | _ -> ());
+        ) objectives props_info;
+        if List.for_all (fun (_, valid, _) -> valid) props_info then
+          let oktext = T.(p ~a:[a_class ["valid-decoration"]] [txt "All properties are valid :)"]) in
+          Dom.appendChild div (of_node oktext)
+       with _ -> Console.error ids.console_div_id "Kind2 parse error (Should not happen, call the teacher)");
+
+    Lwt.return ()
+  )
+
+let display_autocorrect_results ids title mls_prog =
+  clear_div ids.result_div_id;
+  Console.clear ids.console_div_id;
+
+  let div = by_id ids.result_div_id in
+  Dom.appendChild div spinner;
+
+  Lwt.async (fun () ->
+    let open Autocorrect in
+    let* res = autocorrect title mls_prog in
+    Page.clear_div ids.result_div_id;
+    let resnode =
+      match res with
+      | Valid ->
+        T.(p ~a:[a_class ["valid-decoration"]] [txt "The implementation looks correct :)"])
+      | Falsifiable ce ->
+        T.(div ~a:[a_class ["invalid-decoration"]] [
+             (p [txt "The implementation is incorrect, here is a counterexample:"]);
+             mk_static_chronogram ce
+        ])
+      | Unknown ->
+        T.(p ~a:[a_class ["unknown-decoration"]] [txt "Could not decide if the program is correct"])
+      | Error msg ->
+        T.(p ~a:[a_class ["error-decoration"]] [txt (Printf.sprintf "Autocorrect failed: %s" msg)])
+    in
+    Dom.appendChild (by_id ids.result_div_id) (of_node resnode);
+    Lwt.return ()
+  )
+
+let display_output ids content =
+  clear_div ids.result_div_id;
+  let divid = ids.result_div_id^"-editor" in
+  let div = of_node (T.(div ~a:[a_id divid] [])) in
+  Dom.appendChild (by_id ids.result_div_id) div;
+  let ed = Page.create_readonly_editor divid "ace/mode/lustre" in
+  Ace.set_contents ed content;
+  set_editor_height ed.editor
+
+let compile_editor_code (title: string) editor (ids : container_ids) =
   Sys_js.set_channel_flusher stderr (fun e -> print_error ids.console_div_id editor e);
   reset_editor ids.console_div_id editor;
-  clear_div ids.wrapper_div_id;
-  clear_div ids.chronos_div_id;
+
+  let reset_div id =
+    clear_div id; (by_id id)##.classList##remove(Js.string "hidden")
+  in
+  reset_div ids.wrapper_div_id;
+  reset_div ids.result_div_id;
+
   try
     let modname = Compil.prepare_module () in
     let source_code = Ace.get_contents editor in
     let p = Compil.parse_program modname source_code in
     let (mls_program, obc_program) = Compil.compile_program modname p in
-    Obc_printer.print stdout obc_program;
-    Interp.load_interp ids.console_div_id ids.interp_div_id obc_program (Interp.interpreter_of_example title obc_program);
+    (* Obc_printer.print stdout obc_program; *)
 
-    let mls_string = string_of_mls_program mls_program in
-    print_endline mls_string;
+    let objectives = Verify.get_objectives_lines mls_program in
 
-    let objs_lines = Verify.get_objectives_lines mls_program in
+    let wrapper = by_id ids.wrapper_div_id in
 
-    if objs_lines <> [] then (
-      let spinner = Dom_html.createSpan Dom_html.document in
-      spinner##.className := Js.string "spinner hidden";
+    let simul_button = Tyxml_js.To_dom.of_button (T.(button [txt "Simulate"])) in
+    let verify_button = Tyxml_js.To_dom.of_button (T.(button [txt "Verify properties"])) in
+    let autocorrect_button = Tyxml_js.To_dom.of_button (T.(button [txt "Autocorrect"])) in
+    let minils_button = Tyxml_js.To_dom.of_button (T.(button [txt "Minils IR"])) in
+    let obc_button = Tyxml_js.To_dom.of_button (T.(button [txt "Obc IR"])) in
+    let js_button = Tyxml_js.To_dom.of_button (T.(button [txt "JS output"])) in
+    let kind2_button = Tyxml_js.To_dom.of_button (T.(button [txt "Kind2 output"])) in
 
-      let verify_button =
-        T.(button ~a:[
-          a_onclick (fun ev ->
-            clear_div ids.chronos_div_id;
-            Console.clear ids.console_div_id;
-            let btn = Js.Opt.get (Dom_html.CoerceTo.button (Dom_html.eventTarget ev)) (fun () -> assert false) in
-            disable_button btn;
-            spinner##.classList##remove (Js.string "hidden");
+    let modes = [Simulate; Verify; Autocorrect; Minils; Obc; Js; Kind2] in
 
-            (* Verify.do_send_verify mls_string; *)
-            Lwt.async (fun () ->
-              let* props_info = Verify.get_properties_info mls_string in
-              if props_info <> [] then
-                (try
-                  List.iter2 (fun obj_line (_, valid, counterexamples) ->
-                    highlight_line editor.editor obj_line valid;
-                    (match counterexamples with
-                      | Some ce when not valid ->
-                        let chrono_div_id = ids.chronos_div_id ^ "-obj-" ^ (string_of_int obj_line) in
-                        show_static_chronogram chrono_div_id obj_line ce ids
-                      | _ -> ());
+    let button_of_mode = function
+        | Simulate -> simul_button
+        | Verify -> verify_button
+        | Autocorrect -> autocorrect_button
+        | Minils -> minils_button
+        | Obc -> obc_button
+        | Js -> js_button
+        | Kind2 -> kind2_button
+    in
 
-                  ) objs_lines props_info
-                with _ -> Console.error ids.console_div_id "Kind2 parse error (Should not happen, call the teacher)");
+    let switch_mode () =
+      let selected_class = Js.string "selected" in
+      List.iter (fun m -> (button_of_mode m)##.classList##remove selected_class) modes;
+      (button_of_mode ids.current_mode)##.classList##add selected_class;
+      match ids.current_mode with
+        | Simulate ->
+          display_simulate_results editor ids obc_program
+        | Verify ->
+          display_verify_results editor ids (kind2_string_of_mls_program mls_program) objectives
+        | Autocorrect ->
+          display_autocorrect_results ids title mls_program
+        | Minils ->
+          display_output ids (string_of_mls_program mls_program)
+        | Obc ->
+          display_output ids (string_of_obc_program obc_program)
+        | Js ->
+          display_output ids (js_string_of_obc_program obc_program)
+        | Kind2 ->
+          display_output ids (kind2_string_of_mls_program mls_program)
+    in
 
-              spinner##.classList##add (Js.string "hidden");
-              release_button btn;
-              Lwt.return ()
-            );
-            true)
-        ] [txt "Verify properties"])
-      in
-      let wrapper = by_id ids.wrapper_div_id in
-      Dom.appendChild wrapper (of_node verify_button);
-      Dom.appendChild wrapper spinner
+    List.iter (fun m ->
+      (button_of_mode m)##.onclick :=
+          Dom_html.handler (fun _ ->
+            ids.current_mode <- m;
+            switch_mode ();
+            Js.bool true
+          )
+    ) modes;
+
+    Dom.appendChild wrapper simul_button;
+    if objectives <> [] then Dom.appendChild wrapper verify_button
+    else if ids.current_mode = Verify then ids.current_mode <- Simulate;
+    Dom.appendChild wrapper autocorrect_button;
+
+    if debug_mode then (
+      Dom.appendChild wrapper minils_button;
+      Dom.appendChild wrapper obc_button;
+      Dom.appendChild wrapper js_button;
+      Dom.appendChild wrapper kind2_button
     );
-  with _ ->
-    clear_div ids.interp_div_id
+
+    switch_mode ()
+  with _ -> (
+    (by_id ids.wrapper_div_id)##.classList##add (Js.string "hidden");
+    (by_id ids.result_div_id)##.classList##add (Js.string "hidden")
+  )
 
 let make_container_ids id = {
   editor_div_id = "editor-" ^ id;
   wrapper_div_id = "wrapper-" ^ id;
-  chronos_div_id = "chronos-" ^ id;
-  interp_div_id = "interp-" ^ id;
+  result_div_id = "result-" ^ id;
   console_div_id = "console-" ^ id;
+  current_mode = Simulate;
 }
 
 let display_notebook_cells nob =
@@ -122,32 +240,23 @@ let display_notebook_cells nob =
         let ids = make_container_ids (string_of_int ed.editor_id) in
         let editor_div = T.(div ~a:[a_id ids.editor_div_id; a_class ["editor"; "notebook-editor"]][])
         and wrapper_div = T.(div ~a:[a_id ids.wrapper_div_id; a_class ["wrapper"]][])
-        and chronos_div = T.(div ~a:[a_id ids.chronos_div_id; a_class ["chronos"]][])
-        and interp_div = T.(div ~a:[a_id ids.interp_div_id; a_class ["interp"]][])
+        and result_div = T.(div ~a:[a_id ids.result_div_id; a_class ["result"]][])
         and console_div = T.(ul ~a:[a_id ids.console_div_id; a_class ["console"]][]) in
 
         let div = T.(div ~a:[a_class ["container"]]
           [ editor_div;
             wrapper_div;
-            chronos_div;
-            interp_div;
+            result_div;
             console_div]) in
         Dom.appendChild container (of_node div);
 
-        let editor_struct =
-          Ace.({
-            editor_div = by_id ids.editor_div_id;
-            editor = Ace.edit (by_id ids.editor_div_id);
-            marks = [];
-            keybinding_menu = false
-          }) in
+        let editor_struct = Page.create_editor ids.editor_div_id in
         Ace.set_mode editor_struct "ace/mode/lustre";
-        Ace.set_tab_size editor_struct 2;
         let my_editor = editor_struct.editor in
         let stored_content = get_content_from_storage ed.editor_id ed.editor_content in
         my_editor##setValue (Js.string stored_content);
 
-        compile_editor_code nob.title editor_struct ids;
+        compile_editor_code ed.editor_title editor_struct ids;
         my_editor##on (Js.string "change") (fun () ->
           Console.clear main_console_id;
           let content = Js.to_string (my_editor##getValue) in
@@ -157,7 +266,7 @@ let display_notebook_cells nob =
             stor##setItem (Js.string key) (Js.string content)
           );
           clear_all_highlights my_editor;
-          compile_editor_code nob.title editor_struct ids
+          compile_editor_code ed.editor_title editor_struct ids
         );
 
         set_editor_height my_editor;

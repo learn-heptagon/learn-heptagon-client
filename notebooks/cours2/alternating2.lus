@@ -1,0 +1,4 @@
+node alternating2(x: int; s: bool) returns (y: int);
+let
+    (* TODO *)
+tel

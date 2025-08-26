@@ -1,0 +1,4 @@
+node count_true(i: bool) returns (out: int)
+let
+    (* TODO *)
+tel

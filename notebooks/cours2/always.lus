@@ -1,0 +1,4 @@
+node always(b: bool) returns (out: bool)
+let
+    (* TODO *)
+tel

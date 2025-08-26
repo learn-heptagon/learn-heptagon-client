@@ -1,0 +1,4 @@
+node fact() returns(f: int)
+let
+    (* TODO *)
+tel

@@ -1,5 +1,6 @@
 type editor_data = {
   editor_id : int;
+  editor_title : string;
   mutable editor_content : string;
 }
 

@@ -183,23 +183,33 @@ let reset_inputs reset_fun hins houts =
     ) houts;
   reset_fun ()
 
+let create_editor div_id =
+  let div = by_id div_id in
+  let ed = Ace.({
+                 editor_div = div;
+                 editor = Ace.edit div;
+                 marks = [];
+                 keybinding_menu = false
+           }) in
+  Ace.set_tab_size ed 2;
+  ed
+
+let create_readonly_editor div_id lang =
+  let ed = create_editor div_id in
+  Ace.set_mode ed lang;
+  ed.editor##setReadOnly (Js.bool true);
+  ed
+
 let create_input_editor console_div_id reset_fun hins houts info rowid =
   let input_editor_div_id = Atom.fresh "input-editor" in
   let input_editor_div = T.(div ~a:[a_id input_editor_div_id; a_class ["editor"; "editor-row"]][]) in
   Dom.appendChild (by_id rowid) (of_node input_editor_div);
 
-  let editor_struct =
-    Ace.({
-      editor_div = by_id input_editor_div_id;
-      editor = Ace.edit (by_id input_editor_div_id);
-      marks = [];
-      keybinding_menu = false
-    }) in
+  let editor_struct = create_editor input_editor_div_id in
   set_editor_single_line editor_struct.editor;
   Ace.set_mode editor_struct "ace/mode/lustre";
-  Ace.set_tab_size editor_struct 2;
   (match info.editor with
-    | Some editor_info -> editor_struct.editor##setValue (Js.string editor_info.saved_expression)
+    | Some editor_info -> Ace.set_contents editor_struct editor_info.saved_expression
     | None -> ()
   );
 
@@ -253,7 +263,7 @@ let create_input_editor console_div_id reset_fun hins houts info rowid =
       show_chronogram_values hins houts
     )
 
-let rec show_chronogram console_div_id divid (st: Chronogram.t) reset_fun step_fun =
+let show_chronogram console_div_id divid (st: Chronogram.t) reset_fun step_fun =
 
   let headid = "hist-head" in
 
@@ -325,28 +335,17 @@ let rec show_chronogram console_div_id divid (st: Chronogram.t) reset_fun step_f
 
   show_chronogram_values hins houts
 
+type editor_mode = Simulate | Verify | Autocorrect | Minils | Obc | Js | Kind2
+
 type container_ids = {
   editor_div_id : string;
   wrapper_div_id : string;
-  chronos_div_id : string;
-  interp_div_id : string;
+  result_div_id : string;
   console_div_id : string;
+  mutable current_mode : editor_mode;
 }
 
-let show_static_chronogram chrono_div_id obj_line ce (ids : container_ids) =
-  let div = Dom_html.createDiv Dom_html.document in
-  div##.id := Js.string chrono_div_id;
-
-  let msg_div = Dom_html.createDiv Dom_html.document in
-  let msg_text =
-    String.concat "\n"
-      (List.map (fun (block_name, _) ->
-        Printf.sprintf "Invalid property at line %d (node '%s'). Counterexample(s):" obj_line block_name
-      ) ce)
-  in
-  msg_div##.textContent := Js.some (Js.string msg_text);
-  Dom.appendChild div msg_div;
-
+let mk_static_chronogram ce =
   let var_names =
     let names = ref [] in
     List.iter (fun (_, streams) ->
@@ -388,11 +387,26 @@ let show_static_chronogram chrono_div_id obj_line ce (ids : container_ids) =
       in
       T.tr (T.td ~a:[T.a_style "padding: 0 10px"] [T.txt var_name] :: value_cells)
     ) var_names
-  in
 
-  let table = T.table ~a:[] (header :: rows) in
-  Dom.appendChild div (of_node table);
-  Dom.appendChild (by_id ids.chronos_div_id) div
+  in T.table ~a:[] (header :: rows)
+
+
+let show_static_chronogram chrono_div_id obj_line ce (ids : container_ids) =
+  let div = Dom_html.createDiv Dom_html.document in
+  div##.id := Js.string chrono_div_id;
+  div##.classList##add (Js.string "invalid-decoration");
+
+  let msg_div = Dom_html.createDiv Dom_html.document in
+  let msg_text =
+    String.concat "\n"
+      (List.map (fun (block_name, _) ->
+        Printf.sprintf "Invalid property at line %d (node '%s'). Counterexample(s):" obj_line block_name
+      ) ce)
+  in
+  msg_div##.textContent := Js.some (Js.string msg_text);
+  Dom.appendChild div msg_div;
+  Dom.appendChild div (of_node (mk_static_chronogram ce));
+  Dom.appendChild (by_id ids.result_div_id) div
 
 let create_select divid (options : string list) default (onselect : string -> unit) =
   let options = List.map (fun s -> T.(option ~a:[] (txt s))) options in

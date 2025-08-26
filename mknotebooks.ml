@@ -37,7 +37,11 @@ let read_cell_file dirname filename =
   let file = Filename.concat dirname filename in
   match Filename.extension filename with
   | ".html" -> Html (read_file file)
-  | ".lus" -> Editor { editor_id = new_id (); editor_content = read_file file }
+  | ".lus" -> Editor {
+                  editor_id = new_id ();
+                  editor_title = Filename.remove_extension filename;
+                  editor_content = read_file file
+                }
   | ext -> invalid_arg (Printf.sprintf "read_cell_file (%s)" ext)
 
 let add_notebook dirname =
@@ -52,10 +56,10 @@ let print_cell ff = function
   | Heading s -> Format.fprintf ff "Heading %S;@." s
   | Text s -> Format.fprintf ff "Text %S;@." s
   | Html s -> Format.fprintf ff "Html %S;@." s
-  | Editor { editor_id; editor_content } ->
+  | Editor { editor_id; editor_title; editor_content } ->
      Format.fprintf ff
-       "Editor { editor_id = %d; editor_content = %S };@."
-       editor_id editor_content
+       "Editor { editor_id = %d; editor_title = %S; editor_content = %S };@."
+       editor_id editor_title editor_content
 
 let print_notebook ff { title; cells } =
   Format.fprintf ff
