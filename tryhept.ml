@@ -19,6 +19,10 @@ let string_of_mls_program prog =
   Mls_printer.print_program Format.str_formatter prog;
   Format.flush_str_formatter ()
 
+let kind2_string_of_mls_program prog =
+  Kind2_printer.print_program Format.str_formatter prog;
+  Format.flush_str_formatter ()
+
 let string_of_obc_program prog =
   Obc_printer.print_prog Format.str_formatter prog;
   Format.flush_str_formatter ()
@@ -26,10 +30,6 @@ let string_of_obc_program prog =
 let js_string_of_obc_program prog =
   let prog = Obc2javascript.program prog in
   Javascript_printer.program Format.str_formatter prog;
-  Format.flush_str_formatter ()
-
-let kind2_string_of_mls_program prog =
-  Kind2_printer.print_program Format.str_formatter prog;
   Format.flush_str_formatter ()
 
 let highlight_line editor line is_valid =
@@ -49,13 +49,14 @@ let release_button btn =
 let display_simulate_results editor ids obc_program =
   Interp.load_interp ids.console_div_id ids.result_div_id obc_program (Interp.interpreter_of_example "" obc_program)
 
+let spinner = of_node T.(span ~a:[a_class ["spinner"]] [])
+
 let display_verify_results editor ids kind2_string objectives =
   clear_div ids.result_div_id;
   Console.clear ids.console_div_id;
 
-  let spinner = Dom_html.createSpan Dom_html.document in
-  spinner##.className := Js.string "spinner";
-  Dom.appendChild (by_id ids.result_div_id) spinner;
+  let div = by_id ids.result_div_id in
+  Dom.appendChild div spinner;
 
   Lwt.async (fun () ->
     let* props_info = Verify.get_properties_info kind2_string in
@@ -72,9 +73,38 @@ let display_verify_results editor ids kind2_string objectives =
         ) objectives props_info;
         if List.for_all (fun (_, valid, _) -> valid) props_info then
           let oktext = T.(p ~a:[a_class ["valid-decoration"]] [txt "All properties are valid :)"]) in
-          Dom.appendChild (by_id ids.result_div_id) (of_node oktext)
+          Dom.appendChild div (of_node oktext)
        with _ -> Console.error ids.console_div_id "Kind2 parse error (Should not happen, call the teacher)");
 
+    Lwt.return ()
+  )
+
+let display_autocorrect_results ids title mls_prog =
+  clear_div ids.result_div_id;
+  Console.clear ids.console_div_id;
+
+  let div = by_id ids.result_div_id in
+  Dom.appendChild div spinner;
+
+  Lwt.async (fun () ->
+    let open Autocorrect in
+    let* res = autocorrect title mls_prog in
+    Page.clear_div ids.result_div_id;
+    let resnode =
+      match res with
+      | Valid ->
+        T.(p ~a:[a_class ["valid-decoration"]] [txt "The program looks correct :)"])
+      | Falsifiable ce ->
+        T.(div ~a:[a_class ["invalid-decoration"]] [
+             (p [txt "The program is incorrect, here is a counterexample:"]);
+             mk_static_chronogram ce
+        ])
+      | Unknown ->
+        T.(p ~a:[a_class ["unknown-decoration"]] [txt "Could not decide if the program is correct"])
+      | Error msg ->
+        T.(p ~a:[a_class ["error-decoration"]] [txt (Printf.sprintf "Autocorrect failed: %s" msg)])
+    in
+    Dom.appendChild (by_id ids.result_div_id) (of_node resnode);
     Lwt.return ()
   )
 
@@ -110,16 +140,18 @@ let compile_editor_code (title: string) editor (ids : container_ids) =
 
     let simul_button = Tyxml_js.To_dom.of_button (T.(button [txt "Simulate"])) in
     let verify_button = Tyxml_js.To_dom.of_button (T.(button [txt "Verify properties"])) in
+    let autocorrect_button = Tyxml_js.To_dom.of_button (T.(button [txt "Autocorrect"])) in
     let minils_button = Tyxml_js.To_dom.of_button (T.(button [txt "Minils IR"])) in
     let obc_button = Tyxml_js.To_dom.of_button (T.(button [txt "Obc IR"])) in
     let js_button = Tyxml_js.To_dom.of_button (T.(button [txt "JS output"])) in
     let kind2_button = Tyxml_js.To_dom.of_button (T.(button [txt "Kind2 output"])) in
 
-    let modes = [Simulate; Verify; Minils; Obc; Js; Kind2] in
+    let modes = [Simulate; Verify; Autocorrect; Minils; Obc; Js; Kind2] in
 
     let button_of_mode = function
         | Simulate -> simul_button
         | Verify -> verify_button
+        | Autocorrect -> autocorrect_button
         | Minils -> minils_button
         | Obc -> obc_button
         | Js -> js_button
@@ -135,6 +167,8 @@ let compile_editor_code (title: string) editor (ids : container_ids) =
           display_simulate_results editor ids obc_program
         | Verify ->
           display_verify_results editor ids (kind2_string_of_mls_program mls_program) objectives
+        | Autocorrect ->
+          display_autocorrect_results ids title mls_program
         | Minils ->
           display_output ids (string_of_mls_program mls_program)
         | Obc ->
@@ -157,6 +191,7 @@ let compile_editor_code (title: string) editor (ids : container_ids) =
     Dom.appendChild wrapper simul_button;
     if objectives <> [] then Dom.appendChild wrapper verify_button
     else if ids.current_mode = Verify then ids.current_mode <- Simulate;
+    Dom.appendChild wrapper autocorrect_button;
 
     if debug_mode then (
       Dom.appendChild wrapper minils_button;
@@ -221,7 +256,7 @@ let display_notebook_cells nob =
         let stored_content = get_content_from_storage ed.editor_id ed.editor_content in
         my_editor##setValue (Js.string stored_content);
 
-        compile_editor_code nob.title editor_struct ids;
+        compile_editor_code ed.editor_title editor_struct ids;
         my_editor##on (Js.string "change") (fun () ->
           Console.clear main_console_id;
           let content = Js.to_string (my_editor##getValue) in
@@ -231,7 +266,7 @@ let display_notebook_cells nob =
             stor##setItem (Js.string key) (Js.string content)
           );
           clear_all_highlights my_editor;
-          compile_editor_code nob.title editor_struct ids
+          compile_editor_code ed.editor_title editor_struct ids
         );
 
         set_editor_height my_editor;

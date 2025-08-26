@@ -17,7 +17,7 @@ SRC := \
 	page.ml \
 	js_obc_conversion.ml \
 	simul.ml interp.ml \
-	kind2Json.ml verify.ml \
+	kind2Json.ml verify.ml autocorrect.ml \
 	tryhept.ml \
 	pervasives.ml mathlib.ml
 
