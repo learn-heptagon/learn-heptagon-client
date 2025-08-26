@@ -93,10 +93,10 @@ let display_autocorrect_results ids title mls_prog =
     let resnode =
       match res with
       | Valid ->
-        T.(p ~a:[a_class ["valid-decoration"]] [txt "The program looks correct :)"])
+        T.(p ~a:[a_class ["valid-decoration"]] [txt "The implementation looks correct :)"])
       | Falsifiable ce ->
         T.(div ~a:[a_class ["invalid-decoration"]] [
-             (p [txt "The program is incorrect, here is a counterexample:"]);
+             (p [txt "The implementation is incorrect, here is a counterexample:"]);
              mk_static_chronogram ce
         ])
       | Unknown ->

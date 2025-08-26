@@ -80,7 +80,7 @@ let autocorrect title prog =
   (* Send the request *)
   let (name, ins, outs) = get_sig prog in
   let* res =
-    Kind2_printer.print_program Format.str_formatter prog; (* TODO print without contract *)
+    Kind2_printer.print_program ~with_contract:false Format.str_formatter prog;
     send_correct title name
       (List.map snd ins) (List.map snd outs)
       (Format.flush_str_formatter ())
