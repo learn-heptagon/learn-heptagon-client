@@ -196,8 +196,52 @@ let download_mathlib () =
   List.iter (output_byte outf) Mathlib.mathlib;
   close_out outf
 
+(* Functions to perform the "/create-user" and "/get-user" requests *)
+
+(* Store token in localStorage *)
+let store_token token =
+  Js.Optdef.iter Dom_html.window##.localStorage (fun stor ->
+    stor##setItem (Js.string "user_token") (Js.string token)
+  )
+
+(* Retrieve token from localStorage *)
+let get_stored_token () =
+  let stor = Js.Optdef.get Dom_html.window##.localStorage (fun () -> assert false) in
+  Js.Opt.case
+    (stor##getItem (Js.string "user_token"))
+    (fun () -> None)
+    (fun jsstr -> Some (Js.to_string jsstr))
+
+let ensure_user () =
+  match get_stored_token () with
+    | Some token ->
+      (* Try to validate existing token *)
+      let* valid_token = User.get_user token in
+      (match valid_token with
+        | Some t -> Lwt.return t
+        | None ->
+          (* If invalid, create a new user *)
+          let* t = User.create_user () in
+          (match t with
+            | Some nt ->
+              store_token nt;
+              Lwt.return nt
+            | None -> Lwt.fail_with "Failed to create user"))
+    | None ->
+      (* No token stored, create a new user *)
+      let* t = User.create_user () in
+      (match t with
+        | Some nt ->
+          store_token nt;
+          Lwt.return nt
+        | None -> Lwt.fail_with "Failed to create user")
+
 let () =
   download_pervasives ();
   download_mathlib ();
-  display_first Notebooks.notebooks (List.hd Notebooks.notebooks);
-  generate_navbar Notebooks.notebooks
+  Lwt.async (fun () ->
+    let* _token = ensure_user () in
+    display_first Notebooks.notebooks (List.hd Notebooks.notebooks);
+    generate_navbar Notebooks.notebooks;
+    Lwt.return ()
+  )

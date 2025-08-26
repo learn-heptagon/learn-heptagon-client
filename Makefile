@@ -18,6 +18,7 @@ SRC := \
 	js_obc_conversion.ml \
 	simul.ml interp.ml \
 	verify.ml \
+	user.ml \
 	tryhept.ml \
 	pervasives.ml mathlib.ml
 
