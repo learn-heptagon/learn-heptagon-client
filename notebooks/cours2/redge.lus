@@ -1,0 +1,4 @@
+node redge(b: bool) returns (edge: bool)
+let
+    (* TODO *)
+tel

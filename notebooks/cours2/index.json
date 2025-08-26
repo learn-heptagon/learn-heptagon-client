@@ -1,6 +1,16 @@
 {
     "title": "Stateful nodes",
     "content": [
-        "intro.html"
+        "intro.html",
+        "redge.lus",
+        "always.lus",
+        "count_true.lus",
+        "count_succ_true.lus",
+        "sum.lus",
+        "fact.lus",
+        "switch.lus",
+        "counter.lus",
+        "alternating.lus",
+        "alternating2.lus"
     ]
 }
