@@ -201,6 +201,7 @@ let compile_editor_code (title: string) editor (ids : container_ids) =
     );
 
     switch_mode ()
+
   with _ -> (
     (by_id ids.wrapper_div_id)##.classList##add (Js.string "hidden");
     (by_id ids.result_div_id)##.classList##add (Js.string "hidden")
@@ -281,30 +282,6 @@ let display_first my_nobs default_nob =
      | None -> display_notebook_cells default_nob)
   | None -> display_notebook_cells default_nob
 
-let generate_navbar my_nobs =
-  List.iteri (fun i nob ->
-    let div_id = "nob-button-" ^ (string_of_int (i + 1)) in
-    let nob_button = T.(li ~a:[] [button ~a:[a_id div_id] [txt ("Open " ^ nob.title)]]) in
-    Dom.appendChild (by_id "nob-buttons") (of_node nob_button);
-    let div = by_id div_id in
-    div##.onclick := Dom_html.handler (fun _ ->
-      Console.clear main_console_id;
-      display_notebook_cells nob;
-      Js._true)
-  ) my_nobs;
-  Dom.appendChild (by_id "save-button") (of_node save_button);
-  Dom.appendChild (by_id "load-button") (of_node load_button)
-
-let download_pervasives () =
-  let outf = open_out_bin "pervasives.epci" in
-  List.iter (output_byte outf) Pervasives.pervasives;
-  close_out outf
-
-let download_mathlib () =
-  let outf = open_out_bin "mathlib.epci" in
-  List.iter (output_byte outf) Mathlib.mathlib;
-  close_out outf
-
 (* Functions to perform the "/create-user" and "/get-user" requests *)
 
 (* Store token in localStorage *)
@@ -320,6 +297,20 @@ let get_stored_token () =
     (stor##getItem (Js.string "user_token"))
     (fun () -> None)
     (fun jsstr -> Some (Js.to_string jsstr))
+
+(* Remove token from localStorage *)
+let remove_token () =
+  Js.Optdef.iter Dom_html.window##.localStorage (fun stor ->
+    stor##removeItem (Js.string "user_token")
+  )
+
+let disconnect_button =
+  T.(button ~a:[
+    a_onclick (fun _ ->
+      remove_token ();
+      Dom_html.window##.location##reload;
+      true)]
+    [txt "Disconnect"])
 
 let rec dialog_box () =
   let window = Dom_html.window in
@@ -351,7 +342,8 @@ and enter_token window =
   else
     dialog_box ()
 
-let ensure_user () =
+(* Ensure there is a valid user token *)
+let ensure_user_token () =
   match get_stored_token () with
     | Some token ->
       (* Try to validate existing token *)
@@ -366,12 +358,49 @@ let ensure_user () =
             | None -> Lwt.fail_with "Failed to create user"))
     | None -> dialog_box ()
 
+let generate_navbar my_nobs token =
+
+  (* Generate buttons for each notebook *)
+  List.iteri (fun i nob ->
+    let div_id = "nob-button-" ^ (string_of_int (i + 1)) in
+    let nob_button = T.(li ~a:[] [button ~a:[a_id div_id] [txt ("Open " ^ nob.title)]]) in
+    Dom.appendChild (by_id "nob-buttons") (of_node nob_button);
+    let div = by_id div_id in
+    div##.onclick := Dom_html.handler (fun _ ->
+      Console.clear main_console_id;
+      display_notebook_cells nob;
+      Js._true)
+  ) my_nobs;
+
+  (* Download and upload buttons *)
+  Dom.appendChild (by_id "download-button") (of_node download_button);
+  Dom.appendChild (by_id "upload-button") (of_node upload_button);
+
+  (* Token display *)
+  let token_li = T.(span [txt ("Token: " ^ token)]) in
+  Dom.appendChild (by_id "current-token") (of_node token_li);
+
+  (* Disconnect button *)
+  Dom.appendChild (by_id "disconnect-button") (of_node disconnect_button)
+
+(*****)
+
+let download_pervasives () =
+  let outf = open_out_bin "pervasives.epci" in
+  List.iter (output_byte outf) Pervasives.pervasives;
+  close_out outf
+
+let download_mathlib () =
+  let outf = open_out_bin "mathlib.epci" in
+  List.iter (output_byte outf) Mathlib.mathlib;
+  close_out outf
+
 let () =
   download_pervasives ();
   download_mathlib ();
   Lwt.async (fun () ->
-    let* _token = ensure_user () in
+    let* token = ensure_user_token () in
     display_first Notebooks.notebooks (List.hd Notebooks.notebooks);
-    generate_navbar Notebooks.notebooks;
+    generate_navbar Notebooks.notebooks token;
     Lwt.return ()
   )

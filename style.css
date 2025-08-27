@@ -22,6 +22,17 @@ body {
 
 .navbar ul {
     list-style: none;
+    display: flex;
+    align-items: center;
+}
+#current-token {
+  margin-left: auto;
+  padding: 0.5rem;
+  font-family: sans-serif;
+  font-size: 13px;
+  color: #fff;
+  cursor: text;
+  user-select: text;
 }
 .navbar ul li {
     color: #fff;
@@ -37,7 +48,11 @@ body {
   background: #fff;
   color: var(--primary-color);
 }
-
+#current-token:hover {
+  background: inherit;
+  color: inherit;
+  cursor: text;
+}
 /* Nested Dropdown Show */
 .navbar ul li:hover ul {
   display: block;

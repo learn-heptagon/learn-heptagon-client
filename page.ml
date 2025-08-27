@@ -435,7 +435,7 @@ let set_editor_height editor =
 let clear_editor_selection editor =
   ignore (Js.Unsafe.fun_call(Js.Unsafe.js_expr "clearEditorSelection") [|Js.Unsafe.inject editor|])
 
-let save_file filename content =
+let download_file filename content =
   let blob = File.blob_from_string ~contentType:"text/plain" content in
   let url = Dom_html.window##._URL##createObjectURL blob in
   let a = Dom_html.createA Dom_html.document in
@@ -446,7 +446,7 @@ let save_file filename content =
   Dom.removeChild Dom_html.document##.body a;
   Dom_html.window##._URL##revokeObjectURL url
 
-let load_file ev =
+let upload_file ev =
   Console.clear main_console_id;
 
   let element = Dom_html.eventTarget ev in
@@ -489,7 +489,7 @@ let load_file ev =
         | _ -> false)
     | _ -> false
 
-let save_button =
+let download_button =
   T.(button ~a:[
     a_onclick (fun _ ->
       match !current_notebook with
@@ -502,20 +502,20 @@ let save_button =
             ) nob.cells []
           in
           let json = Json.output (nob.title, content) in
-          save_file (nob.title ^ ".json") (Js.to_string json);
+          download_file (nob.title ^ ".json") (Js.to_string json);
           true
         | None -> false)]
-  [txt "Save notebook"])
+  [txt "Download notebook"])
 
-let load_button =
+let upload_button =
   let id = "input" in
   T.(div [
       input ~a:[
         a_input_type `File;
-        a_onchange (fun ev -> load_file ev);
+        a_onchange (fun ev -> upload_file ev);
         a_id id;
         a_style "display: none;"]
       ();
       label ~a:[
         a_label_for id]
-      [txt "Load notebook"]])
+      [txt "Upload notebook"]])
