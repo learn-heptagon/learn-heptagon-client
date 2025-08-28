@@ -86,6 +86,11 @@
                     editor.session.removeGutterDecoration(row, "invalid-decoration");
                 }
             }
+            function setOnUnload(url, body) {
+                window.onunload = function() {
+                  fetch(url, { method: 'POST', body: body, keepalive: true })
+                }
+            }
         </script>
         <script src="tryhept.js"></script>
     </body>
