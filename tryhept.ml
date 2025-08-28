@@ -74,7 +74,7 @@ let display_verify_results editor ids kind2_string objectives =
         if List.for_all (fun (_, valid, _) -> valid) props_info then
           let oktext = T.(p ~a:[a_class ["valid-decoration"]] [txt "All properties are valid :)"]) in
           Dom.appendChild div (of_node oktext)
-       with _ -> Console.error ids.console_div_id "Kind2 parse error (Should not happen, call the teacher)");
+       with _ -> Console.error ids.console_div_id "Kind2 parse error (Should not happen, call the teacher).");
 
     Lwt.return ()
   )
@@ -100,9 +100,9 @@ let display_autocorrect_results ids title mls_prog =
              mk_static_chronogram ce
         ])
       | Unknown ->
-        T.(p ~a:[a_class ["unknown-decoration"]] [txt "Could not decide if the program is correct"])
+        T.(p ~a:[a_class ["unknown-decoration"]] [txt "Could not decide if the program is correct."])
       | Error msg ->
-        T.(p ~a:[a_class ["error-decoration"]] [txt (Printf.sprintf "Autocorrect failed: %s" msg)])
+        T.(p ~a:[a_class ["error-decoration"]] [txt (Printf.sprintf "Autocorrect failed: %s." msg)])
     in
     Dom.appendChild (by_id ids.result_div_id) (of_node resnode);
     Lwt.return ()
@@ -215,9 +215,188 @@ let make_container_ids id = {
   current_mode = Simulate;
 }
 
+(* Store token in localStorage *)
+let store_token token =
+  Js.Optdef.iter Dom_html.window##.localStorage (fun stor ->
+    stor##setItem (Js.string "user_token") (Js.string token)
+  )
+
+(* Retrieve token from localStorage *)
+let get_stored_token () =
+  let stor = Js.Optdef.get Dom_html.window##.localStorage (fun () -> assert false) in
+  Js.Opt.case
+    (stor##getItem (Js.string "user_token"))
+    (fun () -> None)
+    (fun jsstr -> Some (Js.to_string jsstr))
+
+(* Remove token from localStorage *)
+let remove_token () =
+  Js.Optdef.iter Dom_html.window##.localStorage (fun stor ->
+    stor##removeItem (Js.string "user_token")
+  )
+
+let disconnect_button =
+  T.(button ~a:[
+    a_onclick (fun _ ->
+      remove_token ();
+      Dom_html.window##.location##reload;
+      true)]
+    [txt "Disconnect"])
+
+let rec dialog_box () =
+  let window = Dom_html.window in
+  let choice = window##confirm (Js.string "Is this your first connection?") in
+  if Js.to_bool choice then
+    (* Generate a new random token *)
+    let* t = User.create_user () in
+    match t with
+      | Some nt -> store_token nt; Lwt.return nt
+      | None -> Lwt.fail_with "Failed to create user."
+  else
+    (* Ask the user to enter his token *)
+    enter_token window
+
+and enter_token window =
+  let token_js = window##prompt (Js.string "Enter your token:") (Js.string "") in
+  if Js.Opt.test token_js then
+    let token = Js.to_string (Js.Opt.get token_js (fun () -> Js.string "")) in
+    if String.trim token = "" then (
+      window##alert (Js.string "Token cannot be empty, please try again.");
+      enter_token window
+    ) else
+      let* valid_token = User.get_user token in
+      match valid_token with
+        | Some t -> store_token t; Lwt.return t
+        | None ->
+          window##alert (Js.string "Invalid token, please try again.");
+          enter_token window
+  else
+    dialog_box ()
+
+(* Ensure there is a valid user token *)
+let ensure_user_token () =
+  match get_stored_token () with
+    | Some token ->
+      (* Try to validate existing token *)
+      let* valid_token = User.get_user token in
+      (match valid_token with
+        | Some t -> Lwt.return t
+        | None ->
+          (* If invalid, create a new user *)
+          let* t = User.create_user () in
+          (match t with
+            | Some nt -> store_token nt; Lwt.return nt
+            | None -> Lwt.fail_with "Failed to create user."))
+    | None -> dialog_box ()
+
+let save_notebook () =
+  print_endline "save notebook";
+  match !current_notebook with
+  | Some nob ->
+      (* Prepare notebook content for server *)
+      let content =
+        List.fold_right (fun nob_cell acc ->
+          match nob_cell with
+          | Editor ed -> ed.editor_content :: acc
+          | _ -> acc
+        ) nob.cells []
+      in
+      let notebook_json = `Assoc [
+        ("filename", `String nob.title);
+        ("notebook", `List (List.map (fun s -> `String s) content))
+      ] in
+      let token =
+        let stor = Js.Optdef.get Dom_html.window##.localStorage (fun () -> assert false) in
+        Js.Opt.case (stor##getItem (Js.string "user_token"))
+          (fun () -> failwith "No user token")
+          (fun js -> Js.to_string js)
+      in
+      let body =
+        Yojson.Safe.to_string
+          (`Assoc [
+            ("token", `String token);
+            ("notebook", notebook_json)
+          ])
+      in
+      let url =
+        match Url.url_of_string (User.kind2_url "save-notebook") with
+        | Some u -> u
+        | None -> failwith "Invalid URL"
+      in
+      print_endline "sending req";
+(*             while true do () done; *)
+
+        let* res = XmlHttpRequest.perform
+                      ~content_type:"application/json"
+                      ~contents:(`String body)
+                      url
+        in
+        (match res.code with
+         | 200 -> Console.log main_console_id "Notebook saved successfully."; Lwt.return_unit
+         | _ -> Console.error main_console_id ("Save failed: " ^ res.content); Lwt.return_unit)
+  | None -> Lwt.return (Console.error main_console_id "No notebook to save.")
+
+let get_notebook filename =
+  let token =
+    let stor = Js.Optdef.get Dom_html.window##.localStorage (fun () -> assert false) in
+    Js.Opt.case (stor##getItem (Js.string "user_token"))
+      (fun () -> failwith "No user token")
+      (fun js -> Js.to_string js)
+  in
+  let body =
+    Yojson.Safe.to_string
+      (`Assoc [
+        ("token", `String token);
+        ("filename", `String filename)
+      ])
+  in
+  let url =
+    match Url.url_of_string (User.kind2_url "get-notebook") with
+    | Some u -> u
+    | None -> failwith "Invalid URL"
+  in
+  Lwt.async (fun () ->
+    let* res =
+      XmlHttpRequest.perform
+        ~content_type:"application/json"
+        ~contents:(`String body)
+        url
+    in
+    match res.code with
+      | 200 ->
+        let json = Yojson.Safe.from_string res.content in
+        let contents =
+          match Yojson.Safe.Util.member "notebook" json with
+            | `List lst -> List.map (function `String s -> s | _ -> "") lst
+            | _ -> []
+        in
+        (match !current_notebook with
+          | Some nob ->
+             let editors =
+               List.filter_map (function Editor ed -> Some ed | _ -> None) nob.cells
+             in
+             List.iter2
+               (fun ed c ->
+                  let my_editor =
+                    Ace.edit (by_id ("editor-" ^ string_of_int ed.editor_id))
+                  in
+                  my_editor##setValue (Js.string c);
+                  set_editor_height my_editor;
+                  clear_editor_selection my_editor)
+               editors contents;
+             Console.log main_console_id "Notebook loaded successfully."
+          | None -> ());
+        Lwt.return_unit
+      | _ ->
+        Console.error main_console_id ("Get failed: " ^ res.content);
+        Lwt.return_unit
+  )
+
 let display_notebook_cells nob =
   current_notebook := Some nob;
   save_title_in_storage nob.title;
+
+  get_notebook nob.title;
 
   let container = by_id "container" in
   let children = Dom.list_of_nodeList container##.childNodes in
@@ -262,10 +441,10 @@ let display_notebook_cells nob =
           Console.clear main_console_id;
           let content = Js.to_string (my_editor##getValue) in
           ed.editor_content <- content;
-          Js.Optdef.iter Dom_html.window##.localStorage (fun stor ->
+          (*Js.Optdef.iter Dom_html.window##.localStorage (fun stor ->
             let key = "editor_" ^ (string_of_int ed.editor_id) in
             stor##setItem (Js.string key) (Js.string content)
-          );
+          );*)
           clear_all_highlights my_editor;
           compile_editor_code ed.editor_title editor_struct ids
         );
@@ -282,84 +461,7 @@ let display_first my_nobs default_nob =
      | None -> display_notebook_cells default_nob)
   | None -> display_notebook_cells default_nob
 
-(* Functions to perform the "/create-user" and "/get-user" requests *)
-
-(* Store token in localStorage *)
-let store_token token =
-  Js.Optdef.iter Dom_html.window##.localStorage (fun stor ->
-    stor##setItem (Js.string "user_token") (Js.string token)
-  )
-
-(* Retrieve token from localStorage *)
-let get_stored_token () =
-  let stor = Js.Optdef.get Dom_html.window##.localStorage (fun () -> assert false) in
-  Js.Opt.case
-    (stor##getItem (Js.string "user_token"))
-    (fun () -> None)
-    (fun jsstr -> Some (Js.to_string jsstr))
-
-(* Remove token from localStorage *)
-let remove_token () =
-  Js.Optdef.iter Dom_html.window##.localStorage (fun stor ->
-    stor##removeItem (Js.string "user_token")
-  )
-
-let disconnect_button =
-  T.(button ~a:[
-    a_onclick (fun _ ->
-      remove_token ();
-      Dom_html.window##.location##reload;
-      true)]
-    [txt "Disconnect"])
-
-let rec dialog_box () =
-  let window = Dom_html.window in
-  let choice = window##confirm (Js.string "Is this your first connection?") in
-  if Js.to_bool choice then
-    (* Generate a new random token *)
-    let* t = User.create_user () in
-    match t with
-      | Some nt -> store_token nt; Lwt.return nt
-      | None -> Lwt.fail_with "Failed to create user"
-  else
-    (* Ask the user to enter his token *)
-    enter_token window
-
-and enter_token window =
-  let token_js = window##prompt (Js.string "Enter your token:") (Js.string "") in
-  if Js.Opt.test token_js then
-    let token = Js.to_string (Js.Opt.get token_js (fun () -> Js.string "")) in
-    if String.trim token = "" then (
-      window##alert (Js.string "Token cannot be empty, please try again.");
-      enter_token window
-    ) else
-      let* valid_token = User.get_user token in
-      match valid_token with
-        | Some t -> store_token t; Lwt.return t
-        | None ->
-          window##alert (Js.string "Invalid token, please try again.");
-          enter_token window
-  else
-    dialog_box ()
-
-(* Ensure there is a valid user token *)
-let ensure_user_token () =
-  match get_stored_token () with
-    | Some token ->
-      (* Try to validate existing token *)
-      let* valid_token = User.get_user token in
-      (match valid_token with
-        | Some t -> Lwt.return t
-        | None ->
-          (* If invalid, create a new user *)
-          let* t = User.create_user () in
-          (match t with
-            | Some nt -> store_token nt; Lwt.return nt
-            | None -> Lwt.fail_with "Failed to create user"))
-    | None -> dialog_box ()
-
 let generate_navbar my_nobs token =
-
   (* Generate buttons for each notebook *)
   List.iteri (fun i nob ->
     let div_id = "nob-button-" ^ (string_of_int (i + 1)) in
@@ -368,6 +470,7 @@ let generate_navbar my_nobs token =
     let div = by_id div_id in
     div##.onclick := Dom_html.handler (fun _ ->
       Console.clear main_console_id;
+      Lwt.async save_notebook;
       display_notebook_cells nob;
       Js._true)
   ) my_nobs;
@@ -382,8 +485,6 @@ let generate_navbar my_nobs token =
 
   (* Disconnect button *)
   Dom.appendChild (by_id "disconnect-button") (of_node disconnect_button)
-
-(*****)
 
 let download_pervasives () =
   let outf = open_out_bin "pervasives.epci" in
@@ -403,4 +504,10 @@ let () =
     display_first Notebooks.notebooks (List.hd Notebooks.notebooks);
     generate_navbar Notebooks.notebooks token;
     Lwt.return ()
-  )
+  );
+
+  Dom_html.window##.onbeforeunload :=
+    Dom_html.handler (fun ev ->
+(*       (Js.Unsafe.coerce ev)##preventDefault(); *)
+      Lwt.async save_notebook;
+      Js._false)

@@ -3,6 +3,9 @@ open Js_of_ocaml_lwt
 
 let (let*) = Lwt.bind
 
+
+(** Client part to perform the "/verify" request **)
+
 let current_url =
   let port = Option.fold ~none:"" ~some:(Printf.sprintf ":%d") Url.Current.port in
   Printf.sprintf "%s//%s%s" Url.Current.protocol Url.Current.host port

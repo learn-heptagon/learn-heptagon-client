@@ -476,7 +476,7 @@ let upload_file ev =
                       set_editor_height my_editor;
                       clear_editor_selection my_editor
                     ) editors contents;
-                    Console.log main_console_id "The notebook has been successfully imported."
+                    Console.log main_console_id "Notebook imported successfully."
                   ) else (
                     Console.error main_console_id "Importation failed: mismatch between number of editors and content's length."
                   )

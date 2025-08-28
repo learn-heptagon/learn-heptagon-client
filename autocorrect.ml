@@ -3,6 +3,9 @@ open Js_of_ocaml_lwt
 
 let (let*) = Lwt.bind
 
+
+(** Client part to perform the "/autocorrect" request **)
+
 (** URL that the programs to auto-correct should be sent to *)
 let correct_url =
   let url = Printf.sprintf "%s/autocorrect" Verify.current_url in
