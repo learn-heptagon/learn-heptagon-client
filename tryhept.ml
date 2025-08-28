@@ -290,9 +290,8 @@ let ensure_user_token () =
     | None -> dialog_box ()
 
 let save_notebook () =
-  print_endline "save notebook";
   match !current_notebook with
-  | Some nob ->
+    | Some nob ->
       (* Prepare notebook content for server *)
       let content =
         List.fold_right (fun nob_cell acc ->
@@ -323,18 +322,15 @@ let save_notebook () =
         | Some u -> u
         | None -> failwith "Invalid URL"
       in
-      print_endline "sending req";
-(*             while true do () done; *)
-
-        let* res = XmlHttpRequest.perform
-                      ~content_type:"application/json"
-                      ~contents:(`String body)
-                      url
-        in
-        (match res.code with
-         | 200 -> Console.log main_console_id "Notebook saved successfully."; Lwt.return_unit
-         | _ -> Console.error main_console_id ("Save failed: " ^ res.content); Lwt.return_unit)
-  | None -> Lwt.return (Console.error main_console_id "No notebook to save.")
+      let* res = XmlHttpRequest.perform
+                  ~content_type:"application/json"
+                  ~contents:(`String body)
+                  url
+      in
+      (match res.code with
+        | 200 -> Console.log main_console_id "Notebook saved successfully."; Lwt.return_unit
+        | _ -> Console.error main_console_id ("Save failed: " ^ res.content); Lwt.return_unit)
+    | None -> Console.error main_console_id "No notebook to save."; Lwt.return_unit
 
 let get_notebook filename =
   let token =
@@ -355,48 +351,40 @@ let get_notebook filename =
     | Some u -> u
     | None -> failwith "Invalid URL"
   in
-  Lwt.async (fun () ->
-    let* res =
-      XmlHttpRequest.perform
-        ~content_type:"application/json"
-        ~contents:(`String body)
-        url
-    in
-    match res.code with
-      | 200 ->
-        let json = Yojson.Safe.from_string res.content in
-        let contents =
-          match Yojson.Safe.Util.member "notebook" json with
-            | `List lst -> List.map (function `String s -> s | _ -> "") lst
-            | _ -> []
-        in
-        (match !current_notebook with
-          | Some nob ->
-             let editors =
-               List.filter_map (function Editor ed -> Some ed | _ -> None) nob.cells
-             in
-             List.iter2
-               (fun ed c ->
-                  let my_editor =
-                    Ace.edit (by_id ("editor-" ^ string_of_int ed.editor_id))
-                  in
-                  my_editor##setValue (Js.string c);
-                  set_editor_height my_editor;
-                  clear_editor_selection my_editor)
-               editors contents;
-             Console.log main_console_id "Notebook loaded successfully."
-          | None -> ());
-        Lwt.return_unit
-      | _ ->
-        Console.error main_console_id ("Get failed: " ^ res.content);
-        Lwt.return_unit
-  )
+  let* res = XmlHttpRequest.perform
+              ~content_type:"application/json"
+              ~contents:(`String body)
+              url
+  in
+  match res.code with
+    | 200 ->
+      let json = Yojson.Safe.from_string res.content in
+      let contents =
+        match Yojson.Safe.Util.member "notebook" json with
+          | `List lst -> List.map (function `String s -> s | _ -> "") lst
+          | _ -> []
+      in
+      (match !current_notebook with
+        | Some nob ->
+          let editors =
+            List.filter_map (function Editor ed -> Some ed | _ -> None) nob.cells
+            in
+            List.iter2 (fun ed c ->
+              let my_editor = Ace.edit (by_id ("editor-" ^ string_of_int ed.editor_id)) in
+              my_editor##setValue (Js.string c);
+              set_editor_height my_editor;
+              clear_editor_selection my_editor
+            ) editors contents;
+            Console.log main_console_id "Notebook loaded successfully."
+        | None -> ());
+      Lwt.return_unit
+    | _ -> Console.error main_console_id ("Get failed: " ^ res.content); Lwt.return_unit
 
 let display_notebook_cells nob =
   current_notebook := Some nob;
   save_title_in_storage nob.title;
 
-  get_notebook nob.title;
+  Lwt.async (fun () -> get_notebook nob.title);
 
   let container = by_id "container" in
   let children = Dom.list_of_nodeList container##.childNodes in
@@ -433,18 +421,24 @@ let display_notebook_cells nob =
         let editor_struct = Page.create_editor ids.editor_div_id in
         Ace.set_mode editor_struct "ace/mode/lustre";
         let my_editor = editor_struct.editor in
+        (*
         let stored_content = get_content_from_storage ed.editor_id ed.editor_content in
         my_editor##setValue (Js.string stored_content);
+        *)
+        my_editor##setValue (Js.string ed.editor_content);
 
         compile_editor_code ed.editor_title editor_struct ids;
         my_editor##on (Js.string "change") (fun () ->
           Console.clear main_console_id;
           let content = Js.to_string (my_editor##getValue) in
           ed.editor_content <- content;
-          (*Js.Optdef.iter Dom_html.window##.localStorage (fun stor ->
+          Lwt.async save_notebook;
+          (*
+          Js.Optdef.iter Dom_html.window##.localStorage (fun stor ->
             let key = "editor_" ^ (string_of_int ed.editor_id) in
             stor##setItem (Js.string key) (Js.string content)
-          );*)
+          );
+          *)
           clear_all_highlights my_editor;
           compile_editor_code ed.editor_title editor_struct ids
         );
@@ -470,7 +464,7 @@ let generate_navbar my_nobs token =
     let div = by_id div_id in
     div##.onclick := Dom_html.handler (fun _ ->
       Console.clear main_console_id;
-      Lwt.async save_notebook;
+
       display_notebook_cells nob;
       Js._true)
   ) my_nobs;
@@ -504,10 +498,4 @@ let () =
     display_first Notebooks.notebooks (List.hd Notebooks.notebooks);
     generate_navbar Notebooks.notebooks token;
     Lwt.return ()
-  );
-
-  Dom_html.window##.onbeforeunload :=
-    Dom_html.handler (fun ev ->
-(*       (Js.Unsafe.coerce ev)##preventDefault(); *)
-      Lwt.async save_notebook;
-      Js._false)
+  )

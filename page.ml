@@ -23,6 +23,7 @@ let get_title_from_storage () =
          (fun () -> None)
          (fun s -> Some (Js.to_string s)))
 
+(*
 let get_content_from_storage id default_content =
   Js.Optdef.case Dom_html.window##.localStorage
     (fun () -> default_content)
@@ -30,6 +31,7 @@ let get_content_from_storage id default_content =
        Js.Opt.case (stor##getItem (Js.string ("editor_" ^ string_of_int id)))
          (fun () -> default_content)
          (fun s -> Js.to_string s))
+*)
 
 (** Remove all children of a div *)
 let clear_div divid =
