@@ -16,8 +16,11 @@ body {
 }
 
 .navbar {
+  position: fixed;
+  width: 100%;
     color: #fff;
     background: var(--primary-color);
+    z-index: 100;
 }
 
 .navbar ul {
@@ -200,8 +203,8 @@ input.history {
 #container {
   margin-left: 5%;
   margin-right: 5%;
+  padding-top: 40px;
   padding-bottom: 40px;
-
 }
 
 .notebook-heading {
