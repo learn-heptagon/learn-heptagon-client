@@ -160,7 +160,10 @@ input.history {
 }
 
 #main-console {
-    max-height: 30px;
+    position: fixed;
+    width: 100%;
+    bottom: 0px;
+    z-index: 100;
     /* flex-basis: 20%; */
     overflow-y: auto;
     background-color: #f5f5f5;
@@ -168,7 +171,7 @@ input.history {
     font-family: 'Roboto Mono', monospace;
     font-size: 14px;
     line-height: 25px;
-    padding-left: 5px;
+    padding-left: 0px;
 }
 #main-console li {
     border-bottom: solid 1px #80808038;
@@ -197,6 +200,8 @@ input.history {
 #container {
   margin-left: 5%;
   margin-right: 5%;
+  padding-bottom: 40px;
+
 }
 
 .notebook-heading {
