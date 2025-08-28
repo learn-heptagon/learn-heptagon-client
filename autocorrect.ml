@@ -8,7 +8,7 @@ let (let*) = Lwt.bind
 
 (** URL that the programs to auto-correct should be sent to *)
 let correct_url =
-  let url = Printf.sprintf "%s/autocorrect" Verify.current_url in
+  let url = User.server_url "autocorrect" in
   Option.get (Url.url_of_string url)
 
 (** Send an auto-correct request for [prog] to the kind2 server, and handle the result *)

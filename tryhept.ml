@@ -318,7 +318,7 @@ let prepare_save_notebook () =
           ])
       in
       let url =
-        match Url.url_of_string (User.kind2_url "save-notebook") with
+        match Url.url_of_string (User.server_url "save-notebook") with
         | Some u -> u
         | None -> failwith "Invalid URL"
       in (url, body)
@@ -350,7 +350,7 @@ let get_notebook filename =
       ])
   in
   let url =
-    match Url.url_of_string (User.kind2_url "get-notebook") with
+    match Url.url_of_string (User.server_url "get-notebook") with
     | Some u -> u
     | None -> failwith "Invalid URL"
   in

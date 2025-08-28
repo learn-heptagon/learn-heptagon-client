@@ -7,13 +7,13 @@ let (let*) = Lwt.bind
 (** Client part to perform the "/create-user" and "/get-user" requests **)
 
 (* Build the complete URL for a given endpoint path *)
-let kind2_url path =
+let server_url path =
   Printf.sprintf "%s%s" Url.Current.as_string path
 
 (* Create a new user (returns the token) *)
 let create_user () =
   (* Perform an HTTP GET request to /create-user *)
-  let* res = XmlHttpRequest.get (kind2_url "create-user") in
+  let* res = XmlHttpRequest.get (server_url "create-user") in
   match res.code with
     | 200 ->
       (* Parse the JSON response *)
@@ -40,7 +40,7 @@ let get_user token =
     XmlHttpRequest.perform_raw_url
       ~content_type:"application/json"
       ~contents:(`String body)
-      (kind2_url "get-user")
+      (server_url "get-user")
   in
   match res.code with
     | 200 ->
@@ -77,7 +77,7 @@ let save_notebook ~token ~filename ~notebook_json =
     XmlHttpRequest.perform_raw_url
       ~content_type:"application/json"
       ~contents:(`String body)
-      (kind2_url "/save-notebook")
+      (server_url "/save-notebook")
   in
   match res.code with
     | 200 -> Lwt.return_ok ()
@@ -100,7 +100,7 @@ let get_notebook ~token ~filename =
     XmlHttpRequest.perform_raw_url
       ~content_type:"application/json"
       ~contents:(`String body)
-      (kind2_url "/get-notebook")
+      (server_url "/get-notebook")
   in
   match res.code with
     | 200 ->

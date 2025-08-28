@@ -4,15 +4,9 @@ open Js_of_ocaml_lwt
 let (let*) = Lwt.bind
 
 
-(** Client part to perform the "/verify" request **)
-
-let current_url =
-  let port = Option.fold ~none:"" ~some:(Printf.sprintf ":%d") Url.Current.port in
-  Printf.sprintf "%s//%s%s" Url.Current.protocol Url.Current.host port
-
 (** URL that the programs to verify should be sent to *)
 let kind2_url =
-  let url = Printf.sprintf "%s/verify" current_url in
+  let url = User.server_url "verify" in
   Option.get (Url.url_of_string url)
 
 (** Send a verification request for [prog] to the kind2 server, and handle the result *)
