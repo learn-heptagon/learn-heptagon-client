@@ -174,7 +174,7 @@ input.history {
     font-family: 'Roboto Mono', monospace;
     font-size: 14px;
     line-height: 25px;
-    padding-left: 0px;
+    padding-left: 5px;
 }
 #main-console li {
     border-bottom: solid 1px #80808038;

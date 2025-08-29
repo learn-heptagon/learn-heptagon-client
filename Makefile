@@ -14,6 +14,7 @@ SRC := \
 	hept_scoping2.ml \
 	compil.ml \
 	chronogram.ml \
+	saveNotebook.ml \
 	page.ml \
 	js_obc_conversion.ml \
 	simul.ml interp.ml \

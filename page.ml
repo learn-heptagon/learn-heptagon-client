@@ -95,7 +95,7 @@ let parse_loc_message text =
   (r1, r2), (c1, c2)
 
 let print_error console_div_id editor text =
-  print_endline text;
+  if text <> "\n" then print_string text;
   try
     let (row, col) = parse_loc_message text in
     add_error_marker editor row col
@@ -437,61 +437,7 @@ let set_editor_height editor =
 let clear_editor_selection editor =
   ignore (Js.Unsafe.fun_call(Js.Unsafe.js_expr "clearEditorSelection") [|Js.Unsafe.inject editor|])
 
-let download_file filename content =
-  let blob = File.blob_from_string ~contentType:"text/plain" content in
-  let url = Dom_html.window##._URL##createObjectURL blob in
-  let a = Dom_html.createA Dom_html.document in
-  a##.href := url;
-  a##.download := Js.string filename;
-  Dom.appendChild Dom_html.document##.body a;
-  a##click;
-  Dom.removeChild Dom_html.document##.body a;
-  Dom_html.window##._URL##revokeObjectURL url
-
-let upload_file ev =
-  Console.clear main_console_id;
-
-  let element = Dom_html.eventTarget ev in
-  let input_element = Js.Opt.to_option (Dom_html.CoerceTo.input element) in
-  match input_element with
-    | Some input ->
-      let files_opt = Js.Optdef.to_option input##.files in
-      (match files_opt with
-        | Some files when files##.length > 0 ->
-          let reader = new%js File.fileReader in
-          reader##.onload :=
-            Dom.handler (fun _ ->
-              let content = Js.Opt.get (File.CoerceTo.string reader##.result) (fun () -> assert false) in
-              let (title, contents) : (string * string list) = Json.unsafe_input content in
-              (match !current_notebook with
-                | Some nob when nob.title = title ->
-                  let editors = List.filter_map (fun nob_cell ->
-                    match nob_cell with
-                      | Editor ed -> Some ed
-                      | _ -> None
-                  ) nob.cells
-                  in
-                  if List.length editors = List.length contents then (
-                    List.iter2 (fun ed c ->
-                      let my_editor = Ace.edit (by_id ("editor-" ^ string_of_int ed.editor_id)) in
-                      my_editor##setValue (Js.string c);
-                      set_editor_height my_editor;
-                      clear_editor_selection my_editor
-                    ) editors contents;
-                    Console.log main_console_id "Notebook imported successfully."
-                  ) else (
-                    Console.error main_console_id "Importation failed: mismatch between number of editors and content's length."
-                  )
-                | Some _ -> Console.error main_console_id "Importation failed: mismatch between notebooks' titles."
-                | None -> ());
-              Js._false
-            );
-          reader##readAsText (Js.Opt.get (files##item 0) (fun () -> assert false));
-          true
-        | _ -> false)
-    | _ -> false
-
-let download_button =
+let download_button func =
   T.(button ~a:[
     a_onclick (fun _ ->
       match !current_notebook with
@@ -504,17 +450,17 @@ let download_button =
             ) nob.cells []
           in
           let json = Json.output (nob.title, content) in
-          download_file (nob.title ^ ".json") (Js.to_string json);
+          func (nob.title ^ ".json") (Js.to_string json);
           true
         | None -> false)]
   [txt "Download notebook"])
 
-let upload_button =
+let upload_button func =
   let id = "input" in
   T.(div [
       input ~a:[
         a_input_type `File;
-        a_onchange (fun ev -> upload_file ev);
+        a_onchange func;
         a_id id;
         a_style "display: none;"]
       ();

@@ -281,113 +281,14 @@ let ensure_user_token () =
       let* valid_token = User.get_user token in
       (match valid_token with
         | Some t -> Lwt.return t
-        | None ->
-          (* If invalid, create a new user *)
-          let* t = User.create_user () in
-          (match t with
-            | Some nt -> store_token nt; Lwt.return nt
-            | None -> Lwt.fail_with "Failed to create user."))
+        | None -> dialog_box ())
     | None -> dialog_box ()
-
-let prepare_save_notebook () =
-   match !current_notebook with
-    | Some nob ->
-      (* Prepare notebook content for server *)
-      let content =
-        List.fold_right (fun nob_cell acc ->
-          match nob_cell with
-          | Editor ed -> ed.editor_content :: acc
-          | _ -> acc
-        ) nob.cells []
-      in
-      let notebook_json = `Assoc [
-        ("filename", `String nob.title);
-        ("notebook", `List (List.map (fun s -> `String s) content))
-      ] in
-      let token =
-        let stor = Js.Optdef.get Dom_html.window##.localStorage (fun () -> assert false) in
-        Js.Opt.case (stor##getItem (Js.string "user_token"))
-          (fun () -> failwith "No user token")
-          (fun js -> Js.to_string js)
-      in
-      let body =
-        Yojson.Safe.to_string
-          (`Assoc [
-            ("token", `String token);
-            ("notebook", notebook_json)
-          ])
-      in
-      let url =
-        match Url.url_of_string (User.server_url "save-notebook") with
-        | Some u -> u
-        | None -> failwith "Invalid URL"
-      in (url, body)
-    | _ -> invalid_arg "prepare_save_notebook"
-
-let save_notebook () =
-  let (url, body) = prepare_save_notebook () in
-  let* res = XmlHttpRequest.perform
-             ~content_type:"application/json"
-             ~contents:(`String body)
-             url
-  in
-  (match res.code with
-    | 200 -> Console.log main_console_id "Notebook saved successfully."; Lwt.return_unit
-    | _ -> Console.error main_console_id ("Save failed: " ^ res.content); Lwt.return_unit)
-
-let get_notebook filename =
-  let token =
-    let stor = Js.Optdef.get Dom_html.window##.localStorage (fun () -> assert false) in
-    Js.Opt.case (stor##getItem (Js.string "user_token"))
-      (fun () -> failwith "No user token")
-      (fun js -> Js.to_string js)
-  in
-  let body =
-    Yojson.Safe.to_string
-      (`Assoc [
-        ("token", `String token);
-        ("filename", `String filename)
-      ])
-  in
-  let url =
-    match Url.url_of_string (User.server_url "get-notebook") with
-    | Some u -> u
-    | None -> failwith "Invalid URL"
-  in
-  let* res = XmlHttpRequest.perform
-              ~content_type:"application/json"
-              ~contents:(`String body)
-              url
-  in
-  match res.code with
-    | 200 ->
-      let json = Yojson.Safe.from_string res.content in
-      let contents =
-        match Yojson.Safe.Util.member "notebook" json with
-          | `List lst -> List.map (function `String s -> s | _ -> "") lst
-          | _ -> []
-      in
-      (match !current_notebook with
-        | Some nob ->
-          let editors =
-            List.filter_map (function Editor ed -> Some ed | _ -> None) nob.cells
-            in
-            List.iter2 (fun ed c ->
-              let my_editor = Ace.edit (by_id ("editor-" ^ string_of_int ed.editor_id)) in
-              my_editor##setValue (Js.string c);
-              set_editor_height my_editor;
-              clear_editor_selection my_editor
-            ) editors contents;
-            Console.log main_console_id "Notebook loaded successfully."
-        | None -> ());
-      Lwt.return_unit
-    | _ -> Console.error main_console_id ("Get failed: " ^ res.content); Lwt.return_unit
 
 let display_notebook_cells nob =
   current_notebook := Some nob;
   save_title_in_storage nob.title;
 
-  Lwt.async (fun () -> get_notebook nob.title);
+  Lwt.async (fun () -> SaveNotebook.get_notebook nob.title);
 
   let container = by_id "container" in
   let children = Dom.list_of_nodeList container##.childNodes in
@@ -435,9 +336,8 @@ let display_notebook_cells nob =
           Console.clear main_console_id;
           let content = Js.to_string (my_editor##getValue) in
           ed.editor_content <- content;
-          let (url, body) = prepare_save_notebook () in
-          ignore (Js.Unsafe.fun_call (Js.Unsafe.js_expr "setOnUnload") (Array.map Js.Unsafe.inject [| Js.string (Url.string_of_url url); Js.string body |]));
-          (* Lwt.async save_notebook; *)
+          if !SaveNotebook.ready_to_save then
+            Lwt.async (fun () -> SaveNotebook.save_notebook (Option.get !current_notebook));
           (*
           Js.Optdef.iter Dom_html.window##.localStorage (fun stor ->
             let key = "editor_" ^ (string_of_int ed.editor_id) in
@@ -469,14 +369,14 @@ let generate_navbar my_nobs token =
     let div = by_id div_id in
     div##.onclick := Dom_html.handler (fun _ ->
       Console.clear main_console_id;
-      Lwt.async save_notebook;
+      (* Lwt.async save_notebook; *)
       display_notebook_cells nob;
       Js._true)
   ) my_nobs;
 
   (* Download and upload buttons *)
-  Dom.appendChild (by_id "download-button") (of_node download_button);
-  Dom.appendChild (by_id "upload-button") (of_node upload_button);
+  Dom.appendChild (by_id "download-button") (of_node (download_button SaveNotebook.download_file));
+  Dom.appendChild (by_id "upload-button") (of_node (upload_button SaveNotebook.upload_file));
 
   (* Token display *)
   let token_li = T.(span [txt ("Token: " ^ token)]) in
