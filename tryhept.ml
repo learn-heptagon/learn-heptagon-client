@@ -215,45 +215,58 @@ let make_container_ids id = {
   current_mode = Simulate;
 }
 
-(* Store token in localStorage *)
-let store_token token =
+(* Store token and username in localStorage *)
+let store_user_info ~token ~username =
   Js.Optdef.iter Dom_html.window##.localStorage (fun stor ->
-    stor##setItem (Js.string "user_token") (Js.string token)
+    stor##setItem (Js.string "user_token") (Js.string token);
+    stor##setItem (Js.string "username") (Js.string username)
   )
 
-(* Retrieve token from localStorage *)
-let get_stored_token () =
+(* Retrieve user info from localStorage *)
+let get_stored_user_info () =
   let stor = Js.Optdef.get Dom_html.window##.localStorage (fun () -> assert false) in
-  Js.Opt.case
-    (stor##getItem (Js.string "user_token"))
-    (fun () -> None)
-    (fun jsstr -> Some (Js.to_string jsstr))
+  match stor##getItem (Js.string "user_token"), stor##getItem (Js.string "username") with
+    | js_token, js_username when Js.Opt.test js_token && Js.Opt.test js_username ->
+      Some (Js.to_string (Js.Opt.get js_token (fun () -> Js.string "")),
+            Js.to_string (Js.Opt.get js_username (fun () -> Js.string "")))
+    | _ -> None
 
-(* Remove token from localStorage *)
-let remove_token () =
+(* Remove user info *)
+let remove_user_info () =
   Js.Optdef.iter Dom_html.window##.localStorage (fun stor ->
-    stor##removeItem (Js.string "user_token")
+    stor##removeItem (Js.string "user_token");
+    stor##removeItem (Js.string "username")
   )
 
 let disconnect_button =
   T.(button ~a:[
     a_onclick (fun _ ->
-      remove_token ();
+      remove_user_info ();
       Dom_html.window##.location##reload;
       true)]
     [txt "Disconnect"])
 
+(* Dialog box to either create a new user or enter existing token/username *)
 let rec dialog_box () =
   let window = Dom_html.window in
   let choice = window##confirm (Js.string "Is this your first connection?") in
   if Js.to_bool choice then
-    (* Generate a new random token *)
-    let* t = User.create_user () in
-    match t with
-      | Some nt -> store_token nt; Lwt.return nt
-      | None -> Lwt.fail_with "Failed to create user."
+    (* Ask username for new account *)
+    let username_js = window##prompt (Js.string "Enter a username:") (Js.string "") in
+    if Js.Opt.test username_js then
+      let username = Js.to_string (Js.Opt.get username_js (fun () -> Js.string "")) in
+      if String.trim username = "" then (
+        window##alert (Js.string "Username cannot be empty, please try again.");
+        dialog_box ()
+      ) else
+        let* result = User.create_user ~username in
+        (match result with
+          | Some (token, username) -> store_user_info ~token ~username; Lwt.return (token, username)
+          | None -> window##alert (Js.string "Username already exists or creation failed."); dialog_box ())
+    else
+      dialog_box ()
   else
-    (* Ask the user to enter his token *)
+    (* Ask for token *)
     enter_token window
 
 and enter_token window =
@@ -264,23 +277,29 @@ and enter_token window =
       window##alert (Js.string "Token cannot be empty, please try again.");
       enter_token window
     ) else
-      let* valid_token = User.get_user token in
-      match valid_token with
-        | Some t -> store_token t; Lwt.return t
+      let* valid_user = User.get_user ~token () in
+      match valid_user with
+        | Some json ->
+          let username =
+            match Yojson.Safe.Util.member "username" json with
+              | `String u -> u
+              | _ -> ""
+          in
+          store_user_info ~token ~username;
+          Lwt.return (token, username)
         | None ->
           window##alert (Js.string "Invalid token, please try again.");
           enter_token window
   else
     dialog_box ()
 
-(* Ensure there is a valid user token *)
-let ensure_user_token () =
-  match get_stored_token () with
-    | Some token ->
-      (* Try to validate existing token *)
-      let* valid_token = User.get_user token in
-      (match valid_token with
-        | Some t -> Lwt.return t
+(* Ensure a valid user info is available *)
+let ensure_user_info () =
+  match get_stored_user_info () with
+    | Some (token, username) ->
+      let* valid_user = User.get_user ~token () in
+      (match valid_user with
+        | Some _ -> Lwt.return (token, username)
         | None -> dialog_box ())
     | None -> dialog_box ()
 
@@ -360,7 +379,7 @@ let display_first my_nobs default_nob =
      | None -> display_notebook_cells default_nob)
   | None -> display_notebook_cells default_nob
 
-let generate_navbar my_nobs token =
+let generate_navbar my_nobs (token, username) =
   (* Generate buttons for each notebook *)
   List.iteri (fun i nob ->
     let div_id = "nob-button-" ^ (string_of_int (i + 1)) in
@@ -378,9 +397,9 @@ let generate_navbar my_nobs token =
   Dom.appendChild (by_id "download-button") (of_node (download_button SaveNotebook.download_file));
   Dom.appendChild (by_id "upload-button") (of_node (upload_button SaveNotebook.upload_file));
 
-  (* Token display *)
-  let token_li = T.(span [txt ("Token: " ^ token)]) in
-  Dom.appendChild (by_id "current-token") (of_node token_li);
+  (* User information *)
+  let user_li = T.(span [txt ("Username: " ^ username ^ " | Token: " ^ token)]) in
+  Dom.appendChild (by_id "user-info") (of_node user_li);
 
   (* Disconnect button *)
   Dom.appendChild (by_id "disconnect-button") (of_node disconnect_button)
@@ -399,8 +418,8 @@ let () =
   download_pervasives ();
   download_mathlib ();
   Lwt.async (fun () ->
-    let* token = ensure_user_token () in
+    let* (token, username) = ensure_user_info () in
     display_first Notebooks.notebooks (List.hd Notebooks.notebooks);
-    generate_navbar Notebooks.notebooks token;
+    generate_navbar Notebooks.notebooks (token, username);
     Lwt.return ()
   )

@@ -101,6 +101,7 @@ let get_notebook filename =
           Console.log main_console_id "Notebook loaded successfully."
         | None -> ());
       Lwt.return_unit
+    | 204 -> Lwt.return_unit
     | _ -> Console.error main_console_id ("Get failed: " ^ res.content); Lwt.return_unit
 
 (** Download notebook to PC *)
@@ -141,7 +142,6 @@ let upload_file ev =
                   in
                   if List.length editors = List.length contents then (
                     set_contents editors contents;
-                    ready_to_save := true;
                     Console.log main_console_id "Notebook imported successfully.";
                     Lwt.async (fun () -> save_notebook nob)
                   ) else (

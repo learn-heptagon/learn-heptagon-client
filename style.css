@@ -28,7 +28,7 @@ body {
     display: flex;
     align-items: center;
 }
-#current-token {
+#user-info {
   margin-left: auto;
   padding: 0.5rem;
   font-family: sans-serif;
@@ -51,7 +51,7 @@ body {
   background: #fff;
   color: var(--primary-color);
 }
-#current-token:hover {
+#user-info:hover {
   background: inherit;
   color: inherit;
   cursor: text;

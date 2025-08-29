@@ -10,51 +10,64 @@ let (let*) = Lwt.bind
 let server_url path =
   Printf.sprintf "%s%s" Url.Current.as_string path
 
-(* Create a new user (returns the token) *)
-let create_user () =
-  (* Perform an HTTP GET request to /create-user *)
-  let* res = XmlHttpRequest.get (server_url "create-user") in
-  match res.code with
-    | 200 ->
-      (* Parse the JSON response *)
-      let json = Yojson.Safe.from_string res.content in
-      (match Yojson.Safe.Util.member "token" json with
-        | `String t ->
-          (* Return the token *)
-          Lwt.return_some t
-        | _ ->
-          (* No valid token field found *)
-          Lwt.return_none)
-    | _ ->
-      (* Request failed *)
-      prerr_endline (Printf.sprintf "HTTP error %d: %s" res.code res.content);
-      Lwt.return_none
-
-(* Retrieve user information from the server using an existing token *)
-let get_user token =
-  (* Build the request body: { "token": "..."} *)
-  let body = Yojson.Safe.to_string (`Assoc [("token", `String token)]) in
-
-  (* Perform an HTTP POST request to /get-user *)
+(* Create a new user with a given username (returns token + username) *)
+let create_user ~username =
+  let body = Yojson.Safe.to_string (`Assoc [("username", `String username)]) in
+  (* Perform an HTTP POST request to /create-user *)
   let* res =
     XmlHttpRequest.perform_raw_url
       ~content_type:"application/json"
       ~contents:(`String body)
-      (server_url "get-user")
+      (server_url "create-user")
   in
   match res.code with
     | 200 ->
-      (* Parse the response and extract the token *)
       let json = Yojson.Safe.from_string res.content in
-      (match Yojson.Safe.Util.member "token" json with
-        | `String t -> Lwt.return_some t
-        | _ -> Lwt.return_none)
-    | 404 ->
-      prerr_endline "User not found on the server.";
+      let token_opt =
+        match Yojson.Safe.Util.member "token" json with
+        | `String t -> Some t
+        | _ -> None
+      in
+      (match token_opt with
+        | Some t -> Lwt.return_some (t, username)
+        | None -> Lwt.return_none)
+    | 409 ->
+      prerr_endline "Username already exists.";
       Lwt.return_none
     | _ ->
       prerr_endline (Printf.sprintf "HTTP error %d: %s" res.code res.content);
       Lwt.return_none
+
+(* Retrieve user information using token or username *)
+let get_user ?token ?username () =
+  let fields = [] in
+  let fields =
+    match token with Some t -> ("token", `String t)::fields | None -> fields
+  in
+  let fields =
+    match username with Some u -> ("username", `String u)::fields | None -> fields
+  in
+  if fields = [] then begin
+    prerr_endline "Must provide token or username to get user.";
+    Lwt.return_none
+  end else
+    let body = Yojson.Safe.to_string (`Assoc fields) in
+    let* res =
+      XmlHttpRequest.perform_raw_url
+        ~content_type:"application/json"
+        ~contents:(`String body)
+        (server_url "get-user")
+    in
+    match res.code with
+      | 200 ->
+        let json = Yojson.Safe.from_string res.content in
+        Lwt.return_some json
+    | 404 ->
+          prerr_endline "User not found on server.";
+        Lwt.return_none
+      | _ ->
+        prerr_endline (Printf.sprintf "HTTP error %d: %s" res.code res.content);
+        Lwt.return_none
 
 
 (** Client part to perform the "/save-notebook" and "/get-notebook" requests **)
@@ -77,7 +90,7 @@ let save_notebook ~token ~filename ~notebook_json =
     XmlHttpRequest.perform_raw_url
       ~content_type:"application/json"
       ~contents:(`String body)
-      (server_url "/save-notebook")
+      (server_url "save-notebook")
   in
   match res.code with
     | 200 -> Lwt.return_ok ()
@@ -100,7 +113,7 @@ let get_notebook ~token ~filename =
     XmlHttpRequest.perform_raw_url
       ~content_type:"application/json"
       ~contents:(`String body)
-      (server_url "/get-notebook")
+      (server_url "get-notebook")
   in
   match res.code with
     | 200 ->
