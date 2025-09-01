@@ -7,13 +7,15 @@ let (let*) = Lwt.bind
 (** Client part to perform the "/create-user" and "/get-user" requests **)
 
 (* Build the complete URL for a given endpoint path *)
-let server_url path =
+let server_url dest =
   let port =
     match Url.Current.port with
     | Some p -> Printf.sprintf ":%d" p
     | None -> ""
   in
-  Printf.sprintf "%s//%s%s/%s" Url.Current.protocol Url.Current.host port path
+  let path = List.filter (function "login.html" | "index.html" -> false | _ -> true) Url.Current.path in
+  let path = String.concat "/" path in
+  Printf.sprintf "%s//%s%s%s/%s" Url.Current.protocol Url.Current.host port path dest
 
 (* Create a new user with a given username (returns token + username) *)
 let create_user ~username =
