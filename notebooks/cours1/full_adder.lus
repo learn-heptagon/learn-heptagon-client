@@ -1,0 +1,4 @@
+node full_adder(a, b, c: bool) returns (s, co : bool)
+let
+    (* TODO *)
+tel

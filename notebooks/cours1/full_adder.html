@@ -1,0 +1,30 @@
+<h2>1.2 Programming 1-bit adders</h2>
+
+<p>
+In this exercise, we will use Lustre to implement a 1-bit adder.
+As a first approximation, a 1-bit-adder takes two boolean values <code>a</code> and <code>b</code>, and returns their sum <code>s</code> and carry <code>co</code>.
+However, to facilitate chaining 1-bit adders (to construct multiple-bits adders), we add a third operand <code>c</code> to the sum.
+The truth table for this operator is presented below.
+</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>a</th><th>b</th><th>c</th><th>s</th><th>co</th>
+    </tr>
+    <tr><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td></tr>
+    <tr><td>1</td><td>0</td><td>0</td><td>1</td><td>0</td></tr>
+    <tr><td>0</td><td>1</td><td>0</td><td>1</td><td>0</td></tr>
+    <tr><td>1</td><td>1</td><td>0</td><td>0</td><td>1</td></tr>
+    <tr><td>0</td><td>0</td><td>1</td><td>1</td><td>0</td></tr>
+    <tr><td>1</td><td>0</td><td>1</td><td>0</td><td>1</td></tr>
+    <tr><td>0</td><td>1</td><td>1</td><td>0</td><td>1</td></tr>
+    <tr><td>1</td><td>1</td><td>1</td><td>1</td><td>1</td></tr>
+  </thead>
+</table>
+
+<p>
+As a first step, you will implement the 1-bit adder as a single node, taking inspiration from the diagram below.
+</p>
+
+<img src="notebooks/cours1/full_adder.png" alt="Diagram of 1-bit adder"/>

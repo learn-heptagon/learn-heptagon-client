@@ -17,6 +17,15 @@ let send_verify prog =
     ~content_type:"application/json"
     ~contents:(`String content) kind2_url
 
+let parse_kind2_value = function
+  | `List [_step; `Assoc frac] ->
+    let num = Kind2Json.get_int_field "num" frac
+    and den = Kind2Json.get_int_field "den" frac in
+    Printf.sprintf "%d/%d" num den
+  | `List [_step; `Bool b] -> string_of_bool b
+  | `List [_step; `Int i] -> string_of_int i
+  | _ -> "?"
+
 let format_counterexamples (json : Yojson.Safe.t) : (string * (string * string list) list) list =
   let open Kind2Json in
   let ce_list = get_list json in
@@ -30,17 +39,7 @@ let format_counterexamples (json : Yojson.Safe.t) : (string * (string * string l
         let name = get_string_field "name" s_assoc in
         let cls = get_string_field "class" s_assoc in
         let instants = get_list_field "instantValues" s_assoc in
-        let values =
-          List.map (fun v ->
-            match v with
-              | `List [_step; `Assoc frac] ->
-                let num = get_int_field "num" frac
-                and den = get_int_field "den" frac in
-                Printf.sprintf "%d/%d" num den
-              | `List [_step; `Bool b] -> string_of_bool b
-              | _ -> "?"
-          ) instants
-        in
+        let values = List.map parse_kind2_value instants in
         if cls = "input" || cls = "output" then Some (name, values) else None
       ) streams
     in

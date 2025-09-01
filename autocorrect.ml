@@ -52,17 +52,7 @@ let format_counterexamples ins outs (json : Yojson.Safe.t) : counterexample =
         let name = get_string_field "name" s_assoc in
         let cls = get_string_field "class" s_assoc in
         let instants = get_list_field "instantValues" s_assoc in
-        let values =
-          List.map (fun v ->
-            match v with
-              | `List [_step; `Assoc frac] ->
-                let num = get_int_field "num" frac
-                and den = get_int_field "den" frac in
-                Printf.sprintf "%d/%d" num den
-              | `List [_step; `Bool b] -> string_of_bool b
-              | _ -> "?"
-          ) instants
-        in
+        let values = List.map Verify.parse_kind2_value instants in
         if cls = "input" then
           let i = int_of_string (String.sub name 2 (String.length name - 2)) in
           Some (fst (List.nth ins i), values)

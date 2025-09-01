@@ -215,6 +215,16 @@ input.history {
   padding-top: 1em;
 }
 
+.notebook-text th,
+.notebook-text td {
+  padding: 0px 5px 0px 5px;
+  text-align: center;
+}
+
+.notebook-text img {
+  max-height: 300px
+}
+
 .notebook-editor {
   margin-top: 2em;
   margin-left: -40;

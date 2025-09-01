@@ -1,12 +1,33 @@
 {
-    "title": "Combinatorial nodes",
+    "title": "Course1 : Programming in Lustre",
     "content": [
-        "intro.html",
+        "combinatorial.html",
         "max.html",
         "max.lus",
         "abs.html",
         "abs.lus",
         "saturate.html",
-        "saturate.lus"
+        "saturate.lus",
+        "full_adder.html",
+        "full_adder.lus",
+        "half_adder.html",
+        "half_adder.lus",
+        "stateful.html",
+        "redge.html",
+        "redge.lus",
+        "always.html",
+        "always.lus",
+        "count_true.html",
+        "count_true.lus",
+        "count_succ_true.html",
+        "count_succ_true.lus",
+        "sum.html",
+        "sum.lus",
+        "fact.html",
+        "fact.lus",
+        "switch.html",
+        "switch.lus",
+        "counter.html",
+        "counter.lus"
     ]
 }

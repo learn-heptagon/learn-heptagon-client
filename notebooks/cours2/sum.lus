@@ -1,4 +1,0 @@
-node sum(x: int) returns (p: int)
-let
-    (* TODO *)
-tel
