@@ -215,13 +215,6 @@ let make_container_ids id = {
   current_mode = Simulate;
 }
 
-(* Store token and username in localStorage *)
-let store_user_info ~token ~username =
-  Js.Optdef.iter Dom_html.window##.localStorage (fun stor ->
-    stor##setItem (Js.string "user_token") (Js.string token);
-    stor##setItem (Js.string "username") (Js.string username)
-  )
-
 (* Retrieve user info from localStorage *)
 let get_stored_user_info () =
   let stor = Js.Optdef.get Dom_html.window##.localStorage (fun () -> assert false) in
@@ -246,52 +239,9 @@ let disconnect_button =
       true)]
     [txt "Disconnect"])
 
-(* Dialog box to either create a new user or enter existing token/username *)
-let rec dialog_box () =
-  let window = Dom_html.window in
-  let choice = window##confirm (Js.string "Is this your first connection?") in
-  if Js.to_bool choice then
-    (* Ask username for new account *)
-    let username_js = window##prompt (Js.string "Enter a username:") (Js.string "") in
-    if Js.Opt.test username_js then
-      let username = Js.to_string (Js.Opt.get username_js (fun () -> Js.string "")) in
-      if String.trim username = "" then (
-        window##alert (Js.string "Username cannot be empty, please try again.");
-        dialog_box ()
-      ) else
-        let* result = User.create_user ~username in
-        (match result with
-          | Some (token, username) -> store_user_info ~token ~username; Lwt.return (token, username)
-          | None -> window##alert (Js.string "Username already exists or creation failed."); dialog_box ())
-    else
-      dialog_box ()
-  else
-    (* Ask for token *)
-    enter_token window
-
-and enter_token window =
-  let token_js = window##prompt (Js.string "Enter your token:") (Js.string "") in
-  if Js.Opt.test token_js then
-    let token = Js.to_string (Js.Opt.get token_js (fun () -> Js.string "")) in
-    if String.trim token = "" then (
-      window##alert (Js.string "Token cannot be empty, please try again.");
-      enter_token window
-    ) else
-      let* valid_user = User.get_user ~token () in
-      match valid_user with
-        | Some json ->
-          let username =
-            match Yojson.Safe.Util.member "username" json with
-              | `String u -> u
-              | _ -> ""
-          in
-          store_user_info ~token ~username;
-          Lwt.return (token, username)
-        | None ->
-          window##alert (Js.string "Invalid token, please try again.");
-          enter_token window
-  else
-    dialog_box ()
+let go_to_login () =
+  Url.Current.set (Option.get (Url.url_of_string (User.server_url "login.html")));
+  Lwt.return None
 
 (* Ensure a valid user info is available *)
 let ensure_user_info () =
@@ -299,9 +249,9 @@ let ensure_user_info () =
     | Some (token, username) ->
       let* valid_user = User.get_user ~token () in
       (match valid_user with
-        | Some _ -> Lwt.return (token, username)
-        | None -> dialog_box ())
-    | None -> dialog_box ()
+        | Some _ -> Lwt.return (Some (token, username))
+        | None -> go_to_login ())
+    | None -> go_to_login ()
 
 let display_notebook_cells nob =
   current_notebook := Some nob;
@@ -415,11 +365,14 @@ let download_mathlib () =
   close_out outf
 
 let () =
-  download_pervasives ();
-  download_mathlib ();
   Lwt.async (fun () ->
-    let* (token, username) = ensure_user_info () in
-    display_first Notebooks.notebooks (List.hd Notebooks.notebooks);
-    generate_navbar Notebooks.notebooks (token, username);
+    let* uinfo = ensure_user_info () in
+    (match uinfo with
+     | Some (token, username) ->
+       display_first Notebooks.notebooks (List.hd Notebooks.notebooks);
+       generate_navbar Notebooks.notebooks (token, username)
+     | None -> ());
     Lwt.return ()
-  )
+  );
+  download_pervasives ();
+  download_mathlib ()

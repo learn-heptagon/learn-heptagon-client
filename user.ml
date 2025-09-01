@@ -8,7 +8,12 @@ let (let*) = Lwt.bind
 
 (* Build the complete URL for a given endpoint path *)
 let server_url path =
-  Printf.sprintf "%s%s" Url.Current.as_string path
+  let port =
+    match Url.Current.port with
+    | Some p -> Printf.sprintf ":%d" p
+    | None -> ""
+  in
+  Printf.sprintf "%s//%s%s/%s" Url.Current.protocol Url.Current.host port path
 
 (* Create a new user with a given username (returns token + username) *)
 let create_user ~username =

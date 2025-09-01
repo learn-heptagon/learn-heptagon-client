@@ -1,6 +1,7 @@
 *.cm*
 *.byte
 tryhept.js
+login.js
 .merlin
 _build/
 pervasives.*

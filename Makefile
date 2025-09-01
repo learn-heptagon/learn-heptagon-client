@@ -22,7 +22,7 @@ SRC := \
 	tryhept.ml \
 	pervasives.ml mathlib.ml
 
-all: tryhept.js
+all: tryhept.js login.js
 
 # examples.ml:
 # 	ocaml preproc_examples.ml
@@ -42,7 +42,10 @@ tryhept.byte: $(SRC)
 	ocamlbuild ${FLAGS} tryhept.byte
 	@echo "${bold}Done.${normal}"
 
-tryhept.js: tryhept.byte
+login.byte: login.ml user.ml
+	ocamlbuild ${FLAGS} login.byte
+
+%.js: %.byte
 	js_of_ocaml $^
 
 %.epci: heptagon/lib/%.epi
