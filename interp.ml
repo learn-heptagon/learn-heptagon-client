@@ -143,7 +143,7 @@ let interpreter_of_example s p =
   match s with
   (* | "full-adder.lus" -> *)
   (*   Simulator (module Simul.TruthTable) *) (* TODO *)
-  | "filters3" | "filters7" | "fifo-filters" ->
+  | "filters3" | "filters7" | "filters-n" ->
     Simulator (module Simul.FilterSimul(
                           DefaultInterpreter(struct
                               let prog = p

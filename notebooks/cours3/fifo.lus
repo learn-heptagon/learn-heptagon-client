@@ -1,0 +1,9 @@
+node fifo<<n:int; y0:float>>(x : float) returns (y : float);
+let
+    (* TODO *)
+tel
+
+node test_fifo(x : float) returns (y : float)
+let
+    y = fifo<<3, 0.0>>(x);
+tel

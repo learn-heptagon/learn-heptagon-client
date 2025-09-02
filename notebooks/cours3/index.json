@@ -1,5 +1,18 @@
 {
     "title": "Course 3: Arrays",
     "content": [
+        "nplace-fifos.html",
+        "fifo.lus",
+        "fifo-audio.html",
+        "fifo-audio.lus",
+        "iterators.html",
+        "filters.html",
+        "filters-n.lus"
     ]
 }
+        // "adder.html",
+        // "adder.lus",
+        // "edgedetect.html",
+        // "edgedetect.lus",
+        // "edgecount.html",
+        // "edgecount.lus"
