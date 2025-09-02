@@ -1,5 +1,5 @@
 {
-    "title": "Course1 : Programming in Lustre",
+    "title": "Course 1 : Programming in Lustre",
     "has-autocorrect": true,
     "content": [
         "combinatorial.html",
@@ -30,6 +30,10 @@
         "switch.lus",
         "counter.html",
         "counter.lus",
+        "filtering1.html",
+        "filters3.lus",
+        "filtering2.html",
+        "filters7.lus",
         "stopwatch.html",
         "stopwatch.lus"
     ]

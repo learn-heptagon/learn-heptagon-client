@@ -95,7 +95,7 @@ let parse_loc_message text =
   (r1, r2), (c1, c2)
 
 let print_error console_div_id editor text =
-  if text <> "\n" then print_string text;
+  (* if text <> "\n" then print_string text; *)
   try
     let (row, col) = parse_loc_message text in
     add_error_marker editor row col

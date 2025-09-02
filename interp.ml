@@ -140,11 +140,10 @@ let load_interp (console_div_id: string) (interp_div_id: string) (prog: Obc.prog
     stop_fun := Simul.init interp_div_id
 
 let interpreter_of_example s p =
-  print_endline s;
   match s with
   (* | "full-adder.lus" -> *)
   (*   Simulator (module Simul.TruthTable) *) (* TODO *)
-  | "filters" | "fifo-filters" ->
+  | "filters3" | "filters7" | "fifo-filters" ->
     Simulator (module Simul.FilterSimul(
                           DefaultInterpreter(struct
                               let prog = p

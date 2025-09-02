@@ -47,7 +47,9 @@ let release_button btn =
   btn##.disabled := Js._false
 
 let display_simulate_results editor ids title obc_program =
-  Interp.load_interp ids.console_div_id ids.result_div_id obc_program (Interp.interpreter_of_example title obc_program)
+  try
+    Interp.load_interp ids.console_div_id ids.result_div_id obc_program (Interp.interpreter_of_example title obc_program)
+  with _ -> clear_div ids.result_div_id
 
 let spinner = of_node T.(span ~a:[a_class ["spinner"]] [])
 
@@ -132,7 +134,7 @@ let compile_editor_code (title: string) has_autocorrect editor (ids : container_
     let source_code = Ace.get_contents editor in
     let p = Compil.parse_program modname source_code in
     let (mls_program, obc_program) = Compil.compile_program modname p in
-    (* Obc_printer.print stdout obc_program; *)
+    Obc_printer.print stdout obc_program;
 
     let objectives = Verify.get_objectives_lines mls_program in
 
@@ -203,11 +205,15 @@ let compile_editor_code (title: string) has_autocorrect editor (ids : container_
       Dom.appendChild wrapper kind2_button
     );
 
-    switch_mode ()
+    switch_mode ();
 
-  with _ -> (
+  with e -> (
     (by_id ids.wrapper_div_id)##.classList##add (Js.string "hidden");
-    (by_id ids.result_div_id)##.classList##add (Js.string "hidden")
+    (by_id ids.result_div_id)##.classList##add (Js.string "hidden");
+    if debug_mode then (
+      prerr_endline (Printexc.to_string e);
+      Printexc.print_backtrace stderr
+    )
   )
 
 let make_container_ids id = {
@@ -372,6 +378,7 @@ let download_mathlib () =
   close_out outf
 
 let () =
+  Printexc.record_backtrace debug_mode;
   Lwt.async (fun () ->
     let* uinfo = ensure_user_info () in
     (match uinfo with
