@@ -1,0 +1,16 @@
+{
+    "title": "Course 2: Complex Control",
+    "content": [
+        "clocks.html",
+        "stopwatch.lus",
+        "statemachines.html",
+        "twostates.html",
+        "twostates.lus",
+        "switch.html",
+        "switch.lus",
+        "strong_two_states.html",
+        "strong_two_states.lus",
+        "stopwatch.html",
+        "stopwatch.lus"
+    ]
+}

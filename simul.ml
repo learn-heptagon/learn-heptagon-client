@@ -91,7 +91,7 @@ module StopwatchSimul(I : Interpreter) : Simulator = struct
     | Vbool b -> b
     | _ -> invalid_arg "bool_of_svalue"
 
-  let chrono_x = 150 and chrono_y = 250 and chrono_r = 150
+  let chrono_x = 150 and chrono_y = 180 and chrono_r = 150
   let chrono_off = int_of_float((float_of_int chrono_r) /. Float.sqrt(2.))
   let stst_x = chrono_x - chrono_off and stst_y = chrono_y + chrono_off and stst_r = 20
   let res_x = chrono_x + chrono_off and res_y = chrono_y + chrono_off and res_r = 20
@@ -169,7 +169,7 @@ module StopwatchSimul(I : Interpreter) : Simulator = struct
     d < Float.of_int r
 
   let init divid =
-    let canvas = Page.create_canvas divid (Page.width divid) 450 in
+    let canvas = Page.create_canvas divid (Page.width divid) 350 in
     open_canvas canvas;
     clear_graph ();
 
@@ -186,10 +186,11 @@ module StopwatchSimul(I : Interpreter) : Simulator = struct
 
         (match time with
          | [Vint i] ->
-            draw_screen 30 170 240 100 [|(mk_segments ((i / 1000) mod 10));
-                                         (mk_segments ((i / 100) mod 10));
-                                         (mk_segments ((i / 10) mod 10));
-                                         (mk_segments (i mod 10))|];
+            draw_screen 30 (chrono_y - 50) 240 100
+              [|(mk_segments ((i / 1000) mod 10));
+                (mk_segments ((i / 100) mod 10));
+                (mk_segments ((i / 10) mod 10));
+                (mk_segments (i mod 10))|];
          | _ -> ());
 
         startstop := false;

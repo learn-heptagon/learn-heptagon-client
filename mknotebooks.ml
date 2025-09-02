@@ -26,7 +26,11 @@ let parse_index s =
        | Some (`List l) ->
           List.map (function `String s -> s | _ -> invalid_arg "parse_index") l
        | _ -> invalid_arg "parse_index"
-     in (title, content)
+     and has_autocorrect =
+       match List.assoc_opt "has-autocorrect" l with
+       | Some (`Bool b) -> b
+       | _ -> false
+     in (title, has_autocorrect, content)
   | _ -> invalid_arg "parse_index"
 
 let new_id =
@@ -47,9 +51,9 @@ let read_cell_file dirname filename =
 let add_notebook dirname =
   let index = read_file (Filename.concat dirname "index.json") in
   (* print_endline index; *)
-  let (title, cells) = parse_index index in
+  let (title, has_autocorrect, cells) = parse_index index in
   let cells = List.map (read_cell_file dirname) cells in
-  let notebook = { title; cells } in
+  let notebook = { title; has_autocorrect; cells } in
   notebooks := notebook::!notebooks
 
 let print_cell ff = function
@@ -61,10 +65,11 @@ let print_cell ff = function
        "Editor { editor_id = %d; editor_title = %S; editor_content = %S };@."
        editor_id editor_title editor_content
 
-let print_notebook ff { title; cells } =
-  Format.fprintf ff
-    "{ @[<v 2>title = %S;@.cells = ["
-    title;
+let print_notebook ff { title; has_autocorrect; cells } =
+  Format.fprintf ff "{ @[<v 2>";
+  Format.fprintf ff "title = %S;@." title;
+  Format.fprintf ff "has_autocorrect = %b;@." has_autocorrect;
+  Format.fprintf ff "cells = [";
   List.iter (print_cell ff) cells;
   Format.fprintf ff "] }@];@."
 

@@ -1,0 +1,4 @@
+node strong_two_states(min, max : int) returns (last o : int = 0)
+let
+    (* TODO *)
+tel

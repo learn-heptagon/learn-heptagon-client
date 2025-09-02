@@ -1,0 +1,4 @@
+node swtch(ton, toff: bool) returns (s: bool)
+let
+    (* TODO *)
+tel

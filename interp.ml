@@ -140,24 +140,24 @@ let load_interp (console_div_id: string) (interp_div_id: string) (prog: Obc.prog
     stop_fun := Simul.init interp_div_id
 
 let interpreter_of_example s p =
-  (* Obc_printer.print_prog Format.std_formatter p; *)
+  print_endline s;
   match s with
   (* | "full-adder.lus" -> *)
   (*   Simulator (module Simul.TruthTable) *) (* TODO *)
-  | "filters.lus" | "fifo-filters.lus" ->
+  | "filters" | "fifo-filters" ->
     Simulator (module Simul.FilterSimul(
                           DefaultInterpreter(struct
                               let prog = p
                               let classname = "system"
       end)))
-  | "stopwatch.lus" ->
+  | "stopwatch" ->
     Simulator (module Simul.StopwatchSimul(
                           DefaultInterpreter(struct
                               let prog = p
                               let classname = "stopwatch"
                             end)
       ))
-  | "fifo-audio.lus" ->
+  | "fifo-audio" ->
     Simulator (module Simul.AudioFilterSimul(
                           DefaultInterpreter(struct
                               let prog = p

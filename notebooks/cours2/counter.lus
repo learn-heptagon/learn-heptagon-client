@@ -1,0 +1,4 @@
+node counter(i, rs: bool) returns (c: int)
+let
+    (* TODO *)
+tel

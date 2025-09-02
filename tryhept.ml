@@ -46,8 +46,8 @@ let release_button btn =
   ignore (btn##.classList##remove (Js.string "pressed"));
   btn##.disabled := Js._false
 
-let display_simulate_results editor ids obc_program =
-  Interp.load_interp ids.console_div_id ids.result_div_id obc_program (Interp.interpreter_of_example "" obc_program)
+let display_simulate_results editor ids title obc_program =
+  Interp.load_interp ids.console_div_id ids.result_div_id obc_program (Interp.interpreter_of_example title obc_program)
 
 let spinner = of_node T.(span ~a:[a_class ["spinner"]] [])
 
@@ -117,7 +117,7 @@ let display_output ids content =
   Ace.set_contents ed content;
   set_editor_height ed.editor
 
-let compile_editor_code (title: string) editor (ids : container_ids) =
+let compile_editor_code (title: string) has_autocorrect editor (ids : container_ids) =
   Sys_js.set_channel_flusher stderr (fun e -> print_error ids.console_div_id editor e);
   reset_editor ids.console_div_id editor;
 
@@ -164,7 +164,7 @@ let compile_editor_code (title: string) editor (ids : container_ids) =
       (button_of_mode ids.current_mode)##.classList##add selected_class;
       match ids.current_mode with
         | Simulate ->
-          display_simulate_results editor ids obc_program
+          display_simulate_results editor ids title obc_program
         | Verify ->
           display_verify_results editor ids (kind2_string_of_mls_program mls_program) objectives
         | Autocorrect ->
@@ -191,7 +191,10 @@ let compile_editor_code (title: string) editor (ids : container_ids) =
     Dom.appendChild wrapper simul_button;
     if objectives <> [] then Dom.appendChild wrapper verify_button
     else if ids.current_mode = Verify then ids.current_mode <- Simulate;
-    Dom.appendChild wrapper autocorrect_button;
+
+    if has_autocorrect then (
+      Dom.appendChild wrapper autocorrect_button
+    );
 
     if debug_mode then (
       Dom.appendChild wrapper minils_button;
@@ -300,7 +303,11 @@ let display_notebook_cells nob =
         *)
         my_editor##setValue (Js.string ed.editor_content);
 
-        compile_editor_code ed.editor_title editor_struct ids;
+        let compfun () =
+          compile_editor_code ed.editor_title nob.has_autocorrect editor_struct ids
+        in
+
+        compfun ();
         my_editor##on (Js.string "change") (fun () ->
           Console.clear main_console_id;
           let content = Js.to_string (my_editor##getValue) in
@@ -314,7 +321,7 @@ let display_notebook_cells nob =
           );
           *)
           clear_all_highlights my_editor;
-          compile_editor_code ed.editor_title editor_struct ids
+          compfun ()
         );
 
         set_editor_height my_editor;

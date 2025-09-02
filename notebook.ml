@@ -13,4 +13,5 @@ type cell =
 type notebook = {
   title : string;
   cells : cell list;
+  has_autocorrect : bool;
 }

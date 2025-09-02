@@ -1,5 +1,6 @@
 {
     "title": "Course1 : Programming in Lustre",
+    "has-autocorrect": true,
     "content": [
         "combinatorial.html",
         "max.html",
@@ -28,6 +29,8 @@
         "switch.html",
         "switch.lus",
         "counter.html",
-        "counter.lus"
+        "counter.lus",
+        "stopwatch.html",
+        "stopwatch.lus"
     ]
 }
