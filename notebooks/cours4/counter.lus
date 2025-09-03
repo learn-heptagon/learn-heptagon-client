@@ -1,0 +1,14 @@
+node counter_spec(i, rs: bool; c: int) returns (ok: bool)
+let
+  ok = (rs => (c = 0))
+       and ((not rs and i) => (true -> c = pre c + 1))
+       and ((not rs and not i) => (true -> c = pre c));
+tel
+
+node counter(i, rs: bool) returns (c: int)
+contract 
+  enforce counter_spec(i, rs, c)
+let
+  c = if rs then 0 
+      else 0 -> (pre c + (if i then 1 else 0));
+tel

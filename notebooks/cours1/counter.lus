@@ -1,4 +1,4 @@
-node counter(rs: bool) returns (c: int)
+node counter(i, rs: bool) returns (c: int)
 let
     (* TODO *)
 tel

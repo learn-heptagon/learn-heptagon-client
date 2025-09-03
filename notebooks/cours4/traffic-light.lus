@@ -1,0 +1,15 @@
+node traffic_light (button: bool) returns (red, yellow, green, walk, dont_walk: bool)
+var phase, pre_phase: int;
+let
+  pre_phase = 0 -> pre phase;
+  phase = if button and (false -> pre red) then 1
+          else if pre_phase > 0 and pre_phase < 10 then pre_phase + 1
+          else 0;
+
+  green = phase = 0;
+  yellow = phase = 1;
+  red = phase > 1;
+
+  walk = phase > 2 and phase < 10;
+  dont_walk = not walk;
+tel

@@ -1,0 +1,4 @@
+node first_int(x: int) returns (fst: int)
+let
+  (* TODO *)
+tel

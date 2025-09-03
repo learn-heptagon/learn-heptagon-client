@@ -1,0 +1,36 @@
+<h2>4.6 Voice-controlled Robot</h2>
+
+Write the node<code>node robot_control(move_cmd, stop_cmd, obst: bool; dir, dist: int) returns (rotate, go: bool)</code>
+
+<p>
+The robot moves using two actuators:
+<ul>
+  <li>rotate which turns the robot clock-wise</li>
+  <li>go which moves the robot forward</li>
+</ul>
+It has the following inputs:
+<ul>
+  <li>move_cmd means the robot heard the command "Move"</li>
+  <li>stop_cmd means the robot heard the command "Stop"</li>
+  <li>obst is true if there is an obstable between the robot and the speaker</li>
+  <li>dir is the angle (in degrees, between 0 and 359) between the heading of the robot and the speaker (0 means straight ahead, 90 means to the right, etc)</li>
+  <li>dist is the distance (in cm) between the robot and the speaker</li>
+</ul>
+</p>
+
+<p>
+  Then, write a contract for the following requirements:
+  <ol>
+    <li>The robot never advances and rotates at the same time.</li>
+    <li>If an obstacle is detected, the robot does not move.</li>
+    <li>The robot does not move if it is or comes within half a meter of the
+speaker.</li>
+    <li>If a speaker gives a “Stop” command, the robot stops and does not move
+until the “Move” command is given again.</li>
+    <li>If the robot receives only a “Move” command by a speaker more than 1/2
+meter away and there is no obstacle in the way, then the robot will start
+moving.</li>
+    <li>In the absence of obstacles, a moving robot will keep moving until it is
+within 1/2 meter of the speaker or it receives a “Stop” command.</li>
+  </ol>
+</p>

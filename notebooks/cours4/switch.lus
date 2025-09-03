@@ -1,0 +1,38 @@
+node always(b: bool) returns (out: bool)
+let
+  (* TODO copy here *)
+tel
+
+node first_bool(b: bool) returns (out: bool)
+let
+  (* TODO copy here *)
+tel
+
+(* Some implementations *)
+
+node switch1 (set, rs, s0: bool) returns (s: bool);
+let
+  s = if set then true else if rs then false else s0 -> pre s;
+tel
+
+node switch2 (set, rs, s0: bool) returns (s: bool);
+contract
+  assume always(not (set and rs))
+  enforce set => s -- R1
+  enforce rs => not s -- R2
+  enforce first_bool((not set and not rs) => (s = s0)) -- R3
+  enforce true -> (not set and not rs) => (s = pre s) -- R4
+let
+  s = if rs then false else if set then true else s0 -> pre s;
+tel
+
+(* Equivalence of the two implementations *)
+
+node check_eq (set, rs, s0: bool) returns (ok: bool);
+contract enforce ok
+var x1, x2: bool;
+let
+  x1 = switch1(set, rs, s0);
+  x2 = switch2(set, rs, s0);
+  ok = always(not (set and rs)) => (x1 = x2);
+tel

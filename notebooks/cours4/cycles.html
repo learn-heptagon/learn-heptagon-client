@@ -1,0 +1,18 @@
+<h2>4.5 Cycles</h2>
+
+<p>Write a node
+  <code>node cycle(x: int) returns (y: int)</code>
+  where <code>y</code> starts at the absolute value of <code>x</code> and cycles through n,n-1,\ldots,0 where n is the initial value of <code>y</code>.
+</p>
+
+<p>
+  Now write a contract for <code>cycle</code>, which checks the following properties:
+
+  <ol>
+    <li><code>y</code> is always non-negative</li>
+    <li><code>y</code> is bounded above by its initial value</li>
+    <li>Unless the current value of <code>y</code> equals the initial value of <code>y</code>, it is smaller than its previous value</li>
+    <li>If <code>y</code> was initially 0, then <code>y</code> has always been 0</li>
+    <li>The output of <code>cycle</code> depends only on the initial value of <code>x</code></li>
+  </ol>
+</p>

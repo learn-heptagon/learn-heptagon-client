@@ -1,0 +1,4 @@
+node cycle(x: int) returns (y: int)
+let
+  (* TODO *)
+tel

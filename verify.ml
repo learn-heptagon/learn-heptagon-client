@@ -61,7 +61,9 @@ let get_properties_info prog =
               List.filter_map
                 (fun item ->
                   (match item with
-                    | `Assoc fields when List.assoc_opt "objectType" fields = Some (`String "property") ->
+                    | `Assoc fields
+                         when List.assoc_opt "objectType" fields = Some (`String "property")
+                              && List.assoc_opt "source" fields = Some (`String "PropAnnot") ->
                       let line = get_int_field "line" fields in
                       let valid = get_string_field "value" (get_assoc_field "answer" fields) in
                       let valid = (valid = "valid") in

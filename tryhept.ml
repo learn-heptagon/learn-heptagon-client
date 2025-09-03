@@ -134,7 +134,7 @@ let compile_editor_code (title: string) has_autocorrect editor (ids : container_
     let source_code = Ace.get_contents editor in
     let p = Compil.parse_program modname source_code in
     let (mls_program, obc_program) = Compil.compile_program modname p in
-    Obc_printer.print stdout obc_program;
+    (* Obc_printer.print stdout obc_program; *)
 
     let objectives = Verify.get_objectives_lines mls_program in
 
@@ -346,7 +346,7 @@ let generate_navbar my_nobs (token, username) =
   (* Generate buttons for each notebook *)
   List.iteri (fun i nob ->
     let div_id = "nob-button-" ^ (string_of_int (i + 1)) in
-    let nob_button = T.(li ~a:[] [button ~a:[a_id div_id] [txt ("Open " ^ nob.title)]]) in
+    let nob_button = T.(li ~a:[] [button ~a:[a_id div_id] [txt nob.title]]) in
     Dom.appendChild (by_id "nob-buttons") (of_node nob_button);
     let div = by_id div_id in
     div##.onclick := Dom_html.handler (fun _ ->

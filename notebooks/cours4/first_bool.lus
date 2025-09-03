@@ -1,0 +1,4 @@
+node first_bool(x: bool) returns (fst: bool)
+let
+  (* TODO *)
+tel

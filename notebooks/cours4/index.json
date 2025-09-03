@@ -1,6 +1,21 @@
 {
     "title": "Course 4: Contracts and Verification",
+    "has-autocorrect": true,
     "content": [
-        "max.lus"
+        "counter.html",
+        "counter.lus",
+        "operators.html",
+        "first_int.lus",
+        "first_bool.lus",
+        "always.lus",
+        "exists.lus",
+        "switch.html",
+        "switch.lus",
+        "traffic-light.html",
+        "traffic-light.lus",
+        "cycles.html",
+        "cycles.lus",
+        "robot.html",
+        "robot.lus"
     ]
 }

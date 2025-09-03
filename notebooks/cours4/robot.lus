@@ -1,0 +1,5 @@
+node robot_control(move_cmd, stop_cmd, obst: bool; dir, dist: int)
+returns (rotate, go: bool);
+let
+  (* TODO *)
+tel
