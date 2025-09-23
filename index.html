@@ -67,7 +67,10 @@
                 editor.commands.bindKey("Enter|Shift-Enter", "null")
             }
             function setEditorHeight(editor) {
-                editor.setOption('maxLines', 100);
+                editor.setOption('maxLines', 30);
+            }
+            function setEditorMinHeight(editor) {
+                editor.setOption('minLines', 30);
             }
             function clearEditorSelection(editor) {
                 editor.clearSelection();

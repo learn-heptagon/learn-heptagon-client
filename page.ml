@@ -434,6 +434,9 @@ let main_console_id = "main-console"
 let set_editor_height editor =
   ignore (Js.Unsafe.fun_call(Js.Unsafe.js_expr "setEditorHeight") [|Js.Unsafe.inject editor|])
 
+let set_editor_min_height editor =
+  ignore (Js.Unsafe.fun_call(Js.Unsafe.js_expr "setEditorMinHeight") [|Js.Unsafe.inject editor|])
+
 let clear_editor_selection editor =
   ignore (Js.Unsafe.fun_call(Js.Unsafe.js_expr "clearEditorSelection") [|Js.Unsafe.inject editor|])
 

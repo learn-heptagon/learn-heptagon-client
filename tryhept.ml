@@ -308,6 +308,9 @@ let display_notebook_cells nob =
         my_editor##setValue (Js.string stored_content);
         *)
         my_editor##setValue (Js.string ed.editor_content);
+        set_editor_height my_editor;
+
+        if (nob.title = "Scratchpad") then set_editor_min_height my_editor;
 
         let compfun () =
           compile_editor_code ed.editor_title nob.has_autocorrect editor_struct ids
@@ -330,7 +333,6 @@ let display_notebook_cells nob =
           compfun ()
         );
 
-        set_editor_height my_editor;
         clear_editor_selection my_editor
   ) nob.cells
 

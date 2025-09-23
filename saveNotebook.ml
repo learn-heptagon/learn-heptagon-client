@@ -15,7 +15,6 @@ let set_contents editors contents =
   List.iter2 (fun ed c ->
     let my_editor = Ace.edit (by_id ("editor-" ^ string_of_int ed.editor_id)) in
     my_editor##setValue (Js.string c);
-    set_editor_height my_editor;
     clear_editor_selection my_editor
   ) editors contents;
   ready_to_save := true
