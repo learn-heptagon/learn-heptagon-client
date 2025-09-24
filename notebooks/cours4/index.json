@@ -10,7 +10,7 @@
         "always.lus",
         "exists.lus",
         "switch.html",
-        "switch.lus",
+        "switch-contract.lus",
         "traffic-light.html",
         "traffic-light.lus",
         "cycles.html",
