@@ -191,8 +191,9 @@ let compile_editor_code (title: string) has_autocorrect editor (ids : container_
     ) modes;
 
     Dom.appendChild wrapper simul_button;
-    if objectives <> [] then Dom.appendChild wrapper verify_button
-    else if ids.current_mode = Verify then ids.current_mode <- Simulate;
+    if objectives <> [] then Dom.appendChild wrapper verify_button;
+    (* Switch back to simulate mode on edit to avoid overloading server *)
+    if ids.current_mode = Verify || ids.current_mode = Autocorrect then ids.current_mode <- Simulate;
 
     if has_autocorrect then (
       Dom.appendChild wrapper autocorrect_button
