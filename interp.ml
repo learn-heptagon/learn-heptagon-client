@@ -20,7 +20,7 @@ module ObcInterpreter(P : sig
     val prog : Obc.program
     val classname : string
   end) : Simul.Interpreter = struct
-  let mem = ref Obc_interp.init_memory
+  let mem = ref (Obc_interp.reset P.prog P.classname)
 
   let reset () =
     mem := Obc_interp.reset P.prog P.classname

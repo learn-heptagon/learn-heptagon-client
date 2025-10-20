@@ -54,17 +54,6 @@ let rec recompute_outputs step_fun st =
 
 open Obc_interp
 
-let rec string_of_value value =
-  match value with
-    | Vbool b -> Bool.to_string b
-    | Vint i -> string_of_int i
-    | Vfloat f -> string_of_float f
-    | Vconstructor c -> c.name
-    | Varray a ->
-        let elements = List.map string_of_value (Array.to_list a) in
-        "[" ^ (String.concat ", " elements) ^ "]"
-    | Vundef -> "."
-
 exception ParseInputError of string
 let () =
   Printexc.register_printer

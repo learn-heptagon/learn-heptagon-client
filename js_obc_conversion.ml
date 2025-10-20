@@ -32,10 +32,12 @@ let rec js_of_obc (v : Obc_interp.value) : Js.Unsafe.any =
     | Vbool b -> Js.Unsafe.inject (Js.bool b)
     | Vint i -> Js.Unsafe.inject (Js.number_of_float (float_of_int i))
     | Vfloat f -> Js.Unsafe.inject (Js.number_of_float f)
+    | Vstring s -> Js.Unsafe.inject (Js.string s)
     | Vconstructor c -> Js.Unsafe.inject (js_of_qualname c)
     | Varray arr ->
       let js_arr = Array.map js_of_obc arr in
       Js.Unsafe.inject (Js.array js_arr)
+    | Vrecord _ -> failwith "TODO js_of_obc"
     | Vundef -> Js.Unsafe.inject Js.null
 
 let rec obc_of_js (t : Types.ty) (v : Js.Unsafe.any) : Obc_interp.value =

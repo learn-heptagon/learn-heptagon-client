@@ -130,7 +130,7 @@ let input_cell isbool =
 let output_cell isbool v =
   T.(td [if isbool
          then input ~a:([a_input_type `Checkbox; a_disabled ()]@(if v = Obc_interp.Vbool true then [a_checked ()] else [])) ()
-         else input ~a:[a_class ["history"]; a_disabled (); a_value (string_of_value v)] ()]
+         else input ~a:[a_class ["history"]; a_disabled (); a_value (Obc_interp.string_of_value v)] ()]
        ~a:[a_class ["history"]])
 
 let is_boolean_type =
