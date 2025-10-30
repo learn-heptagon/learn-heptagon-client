@@ -19,11 +19,12 @@ let send_verify prog =
 
 let parse_kind2_value = function
   | `List [_step; `Assoc frac] ->
-    let num = Kind2Json.get_int_field "num" frac
-    and den = Kind2Json.get_int_field "den" frac in
-    Printf.sprintf "%d/%d" num den
+    let num = Kind2Json.get_int_field_as_string "num" frac
+    and den = Kind2Json.get_int_field_as_string "den" frac in
+    Printf.sprintf "%s/%s" num den
   | `List [_step; `Bool b] -> string_of_bool b
   | `List [_step; `Int i] -> string_of_int i
+  | `List [_step; `Intlit i] -> i
   | _ -> "?"
 
 let format_counterexamples (json : Yojson.Safe.t) : (string * (string * string list) list) list =
@@ -86,8 +87,8 @@ let get_properties_info prog =
       | Yojson.Json_error msg ->
         prerr_endline ("JSON parsing error: " ^ msg);
         Lwt.return []
-      | Malformed_response ->
-        prerr_endline "Malformed response";
+      | Malformed_response s ->
+        prerr_endline (Printf.sprintf "Malformed response: %s" s);
         Lwt.return [])
     | code ->
       prerr_endline (Printf.sprintf "HTTP error %d: %s" code res.content);

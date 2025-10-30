@@ -95,7 +95,7 @@ let autocorrect title prog =
       with
       | Yojson.Json_error msg ->
          Lwt.return (Error (Printf.sprintf "JSON parsing error: %s" msg))
-      | Malformed_response ->
-         Lwt.return (Error "Response is malformed"))
+      | Malformed_response s ->
+         Lwt.return (Error (Printf.sprintf "Malformed response: %s" s)))
   | _ ->
      Lwt.return (Error (Printf.sprintf "%d: %s" res.code res.content))
