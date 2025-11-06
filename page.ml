@@ -100,7 +100,8 @@ let print_error console_div_id editor text =
     let (row, col) = parse_loc_message text in
     add_error_marker editor row col
   with _ ->
-    if text <> "\n" then Console.error console_div_id text
+    if text <> "\n" && text <> "Fatal Error: Exception Simul.Stop\n"
+    then Console.error console_div_id text
 
 (** Reset the editor *)
 let reset_editor console_div_id (editor: unit Ace.editor) =

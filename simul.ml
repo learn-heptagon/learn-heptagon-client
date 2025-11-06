@@ -73,9 +73,9 @@ open Lwt.Syntax
 open Js_of_ocaml_lwt
 open Graphics_js
 
-module StopwatchSimul(I : Interpreter) : Simulator = struct
-  exception Stop
+exception Stop
 
+module StopwatchSimul(I : Interpreter) : Simulator = struct
   let chronoyellow = rgb 255 127 0
   let black = rgb 0 0 0
   let energized = rgb 255 0 0
