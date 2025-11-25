@@ -1,0 +1,16 @@
+{
+    "title": "SYNCHRON 2025 Demo",
+    "has-autocorrect": true,
+    "content": [
+        "intro.html",
+        "sum.lus",
+        "simul.html",
+        "autocorrect.html",
+        "bespoke-simul.html",
+        "filters-n.lus",
+        "bespoke-simul2.html",
+        "prop-verif.html",
+        "switch-contract.lus",
+        "conclusion.html"
+    ]
+}

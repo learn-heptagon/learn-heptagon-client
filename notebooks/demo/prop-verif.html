@@ -1,0 +1,11 @@
+<h3>Property Verification</h3>
+
+Using Heptagon's syntax, each node may be associated with an assume/enforce <code>contract</code>.
+For instance, in the editor below, the two <code>switch</code> nodes implement a flip-flop gate: setting <code>set</code> to <code>true</code> sets the output to <code>true</code>, while setting <code>rs</code> resets the output to <code>false</code>.
+The contract of <code>switch2</code> specifies this behavior, assuming that <code>set</code> and <code>rs</code> are never <code>true</code> at the same time, which is unspecified.
+Nodes <code>switch1</code> and <code>switch2</code> are equivalent when this unspecified behavior does not occur.
+
+<br/><br/>
+
+Clicking the new "Verify properties" tab checks that these assume-guarantee contracts hold, using standard model-checking techniques (more in the presentation).
+You should see some green text, and a green marker in the margin of the editor for each verified property. Feel-free to modify the properties or the implementation and restart the verification to see what breaks these properties.

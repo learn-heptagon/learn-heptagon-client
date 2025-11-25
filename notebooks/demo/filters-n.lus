@@ -1,0 +1,33 @@
+open Mathlib
+
+const pi : float = 3.14159265359
+
+node source() returns (ni : int; y : float);
+var n : float;
+let
+  n = (-. 5.0) -> pre (n +. 1.0);
+  y = if 0.0 <=. n and n <=. 40.0
+      then power(1.02, n) +. 0.5 *. cos(2.0 *. pi *. n /. 8.0 +. pi /. 4.0)
+      else 0.0;
+  ni = round(n);
+tel
+
+node fadd(f1, f2 : float) returns (f : float)
+let
+  f = f1 +. f2;
+tel
+
+node sliding_average<<n:int>>(x : float) returns (y : float);
+var ptab, tab : float^n; i : int;
+let
+  i = 0 fby ((i + 1) % n);
+  ptab = (0.0^n) fby tab;
+  tab = [ ptab with [i] = x ];
+  y = fold<<n>>fadd(tab, 0.0) /. float(n);
+tel
+
+node system() returns (n : int; s, y : float);
+let
+  (n, s) = source();
+  y = sliding_average<<7>>(s);
+tel
