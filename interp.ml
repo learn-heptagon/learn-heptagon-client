@@ -163,6 +163,13 @@ let interpreter_of_example s p =
                               let classname = "main"
                             end)
       ))
+  | "pitch" ->
+    Simulator (module Simul.LiveAudioFilterSimul(
+                          DefaultInterpreter(struct
+                              let prog = p
+                              let classname = "main"
+                            end)
+      ))
   (* | "stepper.lus" -> Simulator (module Stepper_simul.StepperSimul( *)
   (*       DefaultInterpreter(struct *)
   (*         let prog = p *)

@@ -376,3 +376,63 @@ module AudioFilterSimul(I : Interpreter) = struct
 
     (fun _ -> ())
 end
+
+
+module LiveAudioFilterSimul(I : Interpreter) = struct
+  let set_gain (g: float) =
+    ignore (Js.Unsafe.(fun_call (js_expr "setGain") [|Js.Unsafe.inject g|]))
+
+  let start_mic divid =
+
+    I.reset ();
+
+    let lustreStep =
+      Js.wrap_callback (fun a ->
+          let a = Js.to_array a in
+          let input = Varray (Array.map (fun f -> Vfloat (Js.to_float f)) a) in
+          let output = I.step [input] in
+          match output with
+          | [Varray a] ->
+             Js.array (Array.map
+                         (function
+                          | Vfloat f -> Js.float f
+                          | _ -> invalid_arg "LiveAudio step")
+                         a)
+          | _ -> invalid_arg "LiveAudio step"
+        )
+    in
+
+    Js.Unsafe.global##.audioLustreStep := step;
+
+    ignore (Js.Unsafe.(fun_call (js_expr "startLiveAudio") [|Js.Unsafe.inject lustreStep|]));
+
+    let volume =
+      T.(input ~a:[
+             a_id "volume";
+             a_input_type `Range;
+             a_input_min (`Number 0); a_input_max (`Number 10);
+             a_value "5"
+           ] ()) in
+    let volume = Js.Unsafe.coerce (of_node volume) in
+
+    volume##.onchange := (fun _ -> set_gain ((float_of_string volume##.value) /. 10.); true);
+    set_gain 0.5;
+
+    Dom.appendChild (by_id divid) volume
+
+  let init divid =
+
+    let start_btn =
+      T.(button
+           ~a:[
+             a_onclick (fun _ ->
+                 clear_div divid;
+                 start_mic divid;
+                 true
+               )
+           ]
+           [txt "Start microphone"]) in
+    Dom.appendChild (by_id divid) (of_node start_btn);
+
+    (fun _ -> ignore (Js.Unsafe.(fun_call (js_expr "stopLiveAudio") [||])))
+end

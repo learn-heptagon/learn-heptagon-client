@@ -1,0 +1,5 @@
+-- Handles one channel
+node main(i: float^256) returns (o: float^256)
+let
+    o = i;
+tel
