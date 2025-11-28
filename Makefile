@@ -1,10 +1,7 @@
 bold=$(shell tput bold)
 normal=$(shell tput sgr0)
 
-SRC_DIR := heptc/src
-EXTRACTED := heptc/extraction/extracted
-
-FLAGS=-use-ocamlfind -Is heptagon/compiler/ \
+FLAGS=-use-ocamlfind -Is heptagon/compiler/,lib/ \
       -pkgs str,unix,menhirLib,ocamlgraph,js_of_ocaml,js_of_ocaml-ppx,js_of_ocaml-tyxml,js_of_ocaml-lwt.graphics,ezjs_ace,chartjs,yojson \
 	  -no-hygiene
 
@@ -20,7 +17,7 @@ SRC := \
 	simul.ml interp.ml \
 	kind2Json.ml verify.ml autocorrect.ml user.ml \
 	tryhept.ml \
-	pervasives.ml mathlib.ml
+	lib/pervasives.ml lib/mathlib.ml
 
 all: tryhept.js login.js
 
@@ -48,15 +45,18 @@ login.byte: login.ml user.ml
 %.js: %.byte
 	js_of_ocaml $^
 
+lib/%.epci: lib/%.epi
+	cd lib && ../heptagon/heptc $*.epi
+
 %.epci: heptagon/lib/%.epi
 	cd heptagon/lib && make
 	cp heptagon/lib/$@ .
 
-%.ml: %.epci embed_epci.ml
-	ocaml embed_epci.ml $^ > $@
+lib/%.ml: lib/%.epci embed_epci.ml
+	cd lib && ocaml ../embed_epci.ml $*.epci > $*.ml
 
 clean:
-	rm -rf _build/ *.byte tryhept.js pervasives.epci notebooks.ml
+	rm -rf _build/ *.byte tryhept.js pervasives.epci notebooks.ml lib/*.epci lib/*.ml
 
 .PHONY:
 	all clean extraction
