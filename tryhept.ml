@@ -370,14 +370,9 @@ let generate_navbar my_nobs (token, username) =
   (* Disconnect button *)
   Dom.appendChild (by_id "disconnect-button") (of_node disconnect_button)
 
-let download_pervasives () =
-  let outf = open_out_bin "pervasives.epci" in
-  List.iter (output_byte outf) Pervasives.pervasives;
-  close_out outf
-
-let download_mathlib () =
-  let outf = open_out_bin "mathlib.epci" in
-  List.iter (output_byte outf) Mathlib.mathlib;
+let download_epci fname src =
+  let outf = open_out_bin fname in
+  List.iter (output_byte outf) src;
   close_out outf
 
 let () =
@@ -391,5 +386,6 @@ let () =
      | None -> ());
     Lwt.return ()
   );
-  download_pervasives ();
-  download_mathlib ()
+  download_epci "pervasives.epci" Pervasives.pervasives;
+  download_epci "mathlib.epci" Mathlib.mathlib;
+  download_epci "fftnative.epci" Fftnative.fftnative

@@ -1,5 +1,493 @@
--- Handles one channel
-node main(i: float^256) returns (o: float^256)
+open Mathlib
+open Fftnative
+
+(*--------------------------------------------------*)
+(* Increase (or decrease) in pitch, in semitones    *)
+(*--------------------------------------------------*)
+const semitones:float = 6.
+
+(*--------------------------------------------------*)
+(* Sample rate                                      *)
+(*--------------------------------------------------*)
+const sample_rate:int = 44100
+
+(*--------------------------------------------------*)
+(* Sample size for data reading and overlap for     *)
+(* analysis.                                        *)
+(*--------------------------------------------------*)
+const sample_size:int = 256
+
+(*--------------------------------------------------*)
+(* Samples per FFT                                  *)
+(*--------------------------------------------------*)
+const osamp:int = 4
+
+(*--------------------------------------------------*)
+(* FFT size.                                        *)
+(*--------------------------------------------------*)
+const fft_size:int = osamp*sample_size
+
+
+(*--------------------------------------------------*)
+(* Half the FFT size (without negative frequencies) *)
+(*--------------------------------------------------*)
+const fft_size2:int = fft_size/2
+
+(*--------------------------------------------------*)
+(* Float constants needed everywhere                *)
+(*--------------------------------------------------*)
+
+const pi  :float = 3.14159265358979
+const zero:float = 0.0
+
+(*--------------------------------------------------*)
+(* Complex type and basic operations                *)
+(*--------------------------------------------------*)
+
+(* The below type is declared in Fftnative *)
+(* type complex = { re : float ; im : float } *)
+const zero_c:complex = { re = 0.0 ; im = 0.0 }
+
+
+fun complex_add(i1:complex;i2:complex) returns (o:complex)
 let
-    o = i;
+  o = { re = i1.re +. i2.re ; im = i1.im +. i2.im } 
+tel
+fun complex_sub(i1:complex;i2:complex) returns (o:complex)
+let
+  o = { re = i1.re -. i2.re ; im = i1.im -. i2.im } 
+tel
+fun complex_mul(i1:complex;i2:complex) returns (o:complex)
+let
+  o = { re = (i1.re *. i2.re)-.(i1.im *. i2.im) ;
+        im = (i1.re *. i2.im)+.(i1.im *. i2.re) } 
+tel
+fun swap_re_im(i:complex) returns (o:complex)
+let
+  o = { re = i.im ; im = i.re } 
+tel
+(* Multiply a complex by a float *)
+fun float_prod(f:float;i:complex) returns (o:complex)
+let
+  o = { re = i.re*.f ; im = i.im*.f }
+tel
+
+(*--------------------------------------------------*)
+(* Conversions between cartesian and polar          *)
+(* coordinates.                                     *)
+(*--------------------------------------------------*)
+
+fun complex2polar(i:complex) returns (mag:float;ang:float)
+let
+  mag = sqrt(i.re*.i.re+.i.im*.i.im) ;
+  ang = atan2(i.im,i.re) ;
+tel
+
+fun polar2complex(mag:float;ang:float) returns (o:complex)
+let
+  o = { re = mag *. cos(ang);
+	      im = mag *. sin(ang) };
+tel
+
+(*--------------------------------------------------*)
+(* Conversions between complex and float            *)
+(*--------------------------------------------------*)
+
+fun re (i:complex) returns (o:float)
+let
+  o = i.re ;
+tel
+fun im (i:complex) returns (o:float)
+let
+  o = i.im ;
+tel
+fun float2complex(i:float) returns (o:complex)
+let
+  o = { re = i ; im = 0.0 } ;
+tel
+
+(*--------------------------------------------------*)
+(* Functions needed to create constant vectors      *)
+(*--------------------------------------------------*)
+
+fun impulse<<size:int>> () returns (o:complex^size)
+var x : complex^size ;
+  tmp_zero_c : complex ;
+let
+  tmp_zero_c = zero_c ; 
+  x = tmp_zero_c^size;
+  o = [x with [1] = { re = 1.0 ; im = 0.0 }] ;
+tel
+
+const epsilon:float = 0.001 (* 0.000001*)
+fun comp_equal_aux(v1:complex;v2:complex;b_in:bool) returns (b:bool)
+var c : complex ;
+let
+  c = complex_sub(v1,v2) ;
+  b = ((c.re +. epsilon) >. 0.0) &
+      ((c.re -. epsilon) <. 0.0) &
+      ((c.im +. epsilon) >. 0.0) &
+      ((c.im -. epsilon) <. 0.0) &
+      b_in ;
+tel
+fun comp_equal<<size:int>>(v1:complex^size;v2:complex^size) returns (b:bool)
+let
+  b = fold<<size>> comp_equal_aux (v1,v2,true) ;
+tel
+
+
+fun comp_equal8(v1:complex^8;v2:complex^8) returns (b:bool)
+let
+  b = comp_equal<<8>>(v1,v2) ;
+tel
+fun comp_equal16(v1:complex^16;v2:complex^16) returns (b:bool)
+let
+  b = comp_equal<<16>>(v1,v2) ;
+tel
+fun comp_equal1024(v1:complex^1024;v2:complex^1024) returns (b:bool)
+let
+  b = comp_equal<<1024>>(v1,v2) ;
+tel
+fun comp_equal256(v1:complex^256;v2:complex^256) returns (b:bool)
+let
+  b = comp_equal<<256>>(v1,v2) ;
+tel
+fun impulse8() returns (o:complex^8)
+let
+  o = impulse<<8>>() ;
+tel
+fun impulse16() returns (o:complex^16)
+let
+  o = impulse<<16>>() ;
+tel
+fun impulse256() returns (o:complex^256)
+let
+  o = impulse<<256>>() ;
+tel
+fun impulse1024() returns (o:complex^1024)
+let
+  o = impulse<<1024>>() ;
+tel
+
+(*--------------------------------------------------*)
+(* 2-point FFT butterfly                            *)
+(*--------------------------------------------------*)
+
+fun single_bf_step(i1:complex;i2:complex;twid:complex)
+                  returns
+		  (o1:complex;o2:complex)
+let
+  o1 = complex_add(i1,i2) ;
+  o2 = complex_mul(complex_sub(i1,i2),twid) ;
+tel
+
+(*--------------------------------------------------*)
+(* Vector butterfly                                 *)
+(*--------------------------------------------------*)
+
+fun fft_bf<<n:int>>(i:complex^n;twid:complex^n)
+		   returns
+		   (o:complex^n)
+var i1,i2,o1,o2:complex^(n/2) ;		      
+let
+  i1 = i[0 .. n/2-1] ;
+  i2 = i[n/2 .. n-1] ;
+  (o1,o2) =
+    map<< (n/2) >> single_bf_step (i1,i2,twid[n/2 .. n-1]) ;
+  o = o1@o2 ;
+tel
+
+(*--------------------------------------------------*)
+(* FFT functions. For size 2, it's a direct         *)
+(* application of single_bf_step. For larger FFTs,  *)
+(* I have to create one instance per FFT size, due  *)
+(* to Heptagon limitations.                         *)
+(*--------------------------------------------------*)
+
+fun fft_aux2(i:complex^2) returns (o:complex^2)
+var x0,x1:complex ; 
+let
+  (x0,x1) = single_bf_step(i[0],i[1],(twiddle())[1]) ;
+  o = [x0,x1] ;
+tel
+fun fft_aux4(i:complex^4) returns (o:complex^4)
+var y:complex^4 ;
+let
+  y = fft_bf<<4>>(i,(twiddle())[0 .. 3]) ;
+  o = (fft_aux2 (y[0 .. 1]))@(fft_aux2 (y[2 .. 3])) ;
+tel
+fun fft_aux8(i:complex^8) returns (o:complex^8)
+var y:complex^8 ;
+let
+  y = fft_bf<<8>>(i,(twiddle())[0 .. 7]) ;
+  o = (fft_aux4 (y[0 .. 3]))@(fft_aux4 (y[4 .. 7])) ;
+tel
+fun fft_aux16(i:complex^16) returns (o:complex^16)
+var y:complex^16 ;
+let
+  y = fft_bf<<16>>(i,(twiddle())[0 .. 15]) ;
+  o = (fft_aux8 (y[0 .. 7]))@(fft_aux8 (y[8 .. 15])) ;
+tel
+fun fft_aux32(i:complex^32) returns (o:complex^32)
+var y:complex^32 ;
+let
+  y = fft_bf<<32>>(i,(twiddle())[0 .. 31]) ;
+  o = (fft_aux16 (y[0 .. 15]))@(fft_aux16 (y[16 .. 31])) ;
+tel
+fun fft_aux64(i:complex^64) returns (o:complex^64)
+var y:complex^64 ;
+let
+  y = fft_bf<<64>>(i,(twiddle())[0 .. 63]) ;
+  o = (fft_aux32 (y[0 .. 31]))@(fft_aux32 (y[32 .. 63])) ;
+tel
+fun fft_aux128(i:complex^128) returns (o:complex^128)
+var y:complex^128 ;
+let
+  y = fft_bf<<128>>(i,(twiddle())[0 .. 127]) ;
+  o = (fft_aux64 (y[0 .. 63]))@(fft_aux64 (y[64 .. 127])) ;
+tel
+fun fft_aux256(i:complex^256) returns (o:complex^256)
+var y:complex^256 ;
+let
+  y = fft_bf<<256>>(i,(twiddle())[0 .. 255]) ;
+  o = (fft_aux128 (y[0 .. 127]))@(fft_aux128 (y[128 .. 255])) ;
+tel
+fun fft_aux512(i:complex^512) returns (o:complex^512)
+var y:complex^512 ;
+let
+  y = fft_bf<<512>>(i,(twiddle())[0 .. 511]) ;
+  o = (fft_aux256 (y[0 .. 255]))@(fft_aux256 (y[256 .. 511])) ;
+tel
+fun fft_aux1024(i:complex^1024) returns (o:complex^1024)
+var y:complex^1024 ;
+let
+  y = fft_bf<<1024>>(i,(twiddle())[0 .. 1023]) ;
+  o = (fft_aux512 (y[0 .. 511]))@(fft_aux512 (y[512 .. 1023])) ;
+tel
+
+(*--------------------------------------------------*)
+
+const div1024:float = 1.0/.1024.0 
+
+fun fft1024(i:complex^1024) returns (o:complex^1024)
+var tmp : float ;
+let
+  tmp = div1024 ;
+  o = map<<1024>> float_prod<(tmp)> (bitrev1024(fft_aux1024(i))) ;
+tel
+
+const mul1024:float = 1024.0*.1024.0
+fun ifft1024(i:complex^1024) returns (o:complex^1024)
+var x,y,z:complex^1024 ;
+    tmp:float ;
+let
+  x = map<<1024>> swap_re_im (i) ;
+  y = fft1024(x) ;
+  tmp = mul1024 ;
+  z = map<<1024>> float_prod<(tmp)> (y) ;
+  o = map<<1024>> swap_re_im (z) ;
+tel
+
+(*------------------------------------------------------------*)
+(* Useful constants. Too bad I cannot use a function or a map *)
+(* to initialize constants (maybe I can get the effect by     *)
+(* using "at" and a fby.                                      *)
+(*------------------------------------------------------------*)
+
+const cst_zero_f_fft : float^fft_size = (0.0^fft_size)
+const cst_zero_f_fft2 : float^(fft_size/2) = (0.0^(fft_size/2))
+const cst_zero_f_sample : float^sample_size = (0.0^sample_size)
+const cst_zero_c_fft : complex^fft_size =
+  ({ re = 0.0 ; im = 0.0 }^fft_size)
+const cst_zero_c_fft2 : complex^(fft_size/2) =
+  ({ re = 0.0 ; im = 0.0 }^(fft_size/2))
+const cst_zero_c_sample : complex^sample_size =
+  ({ re = 0.0 ; im = 0.0 }^sample_size)
+
+(*------------------------------------------------------------*)
+(* Various functions and nodes used from main                 *)
+(*------------------------------------------------------------*)
+
+(*......................................*)
+(* map delta phase into +/- Pi interval *)
+(*......................................*)
+fun normalize_phase(i:float) returns (o:float)
+var x0,x1 : int ; 
+let
+  x0 = round(i /. pi) ;
+  x1 =
+    if int_is_odd(x0) then
+      if x0 >= 0 then
+        x0+1
+      else
+        x0-1
+    else x0 ;
+  o = i -. (pi *. float(x1)) ;
+tel
+
+(*......................................*)
+(* Analysis on one point                *)
+(*......................................*)
+fun analysis(phase:float;pre_phase:float;k:int) returns (analysis_freq:float)
+var osamp_float,k_float,sample_rate_float,fft_size_float : float ;
+    expect,x0,x1,x2,freq_per_bin : float ;
+    tmp_osamp,tmp_sample_rate,tmp_fft_size : int ;
+let
+  (* conversions *)
+  tmp_osamp = osamp ;
+  osamp_float = float(tmp_osamp) ;
+  k_float = float(k) ;
+  tmp_sample_rate = sample_rate ;
+  sample_rate_float = float(tmp_sample_rate) ;
+  tmp_fft_size = fft_size ;
+  fft_size_float = float(tmp_fft_size) ;
+  (* actual code *)
+  expect = 2.0 *. pi /. osamp_float ;
+  x0 = phase -. pre_phase -. (k_float *. expect) ;
+  x1 = normalize_phase(x0) ;
+  x2 = x1 *. osamp_float /. (2.0 *. pi) ;
+  freq_per_bin = sample_rate_float /. fft_size_float ;
+  analysis_freq = (k_float +. x2) *. freq_per_bin ;
+tel
+
+(*......................................*)
+(* The actual pitch shifting happens    *)
+(* here. I need an accumulator type.    *)
+(*......................................*)
+type aux_vec =
+  {
+    mag : float^fft_size2 ;
+    freq: float^fft_size2
+  }
+
+fun process (pitch_shift:float;freq:float;mag:float;k:int;acc_in:aux_vec) returns (acc_out:aux_vec)
+var index : int ;
+let
+  index = round(pitch_shift *. float(k)) ;
+  if (index >= fft_size2) then
+    acc_out = acc_in ;
+  else
+    acc_out =
+      {
+        mag = [acc_in.mag with [index] = acc_in.mag[>index<] +. mag] ;
+        freq = [acc_in.freq with [index] = acc_in.freq[>index<] +. (freq *. pitch_shift) ]
+      } ;
+  end
+tel
+
+(*......................................*)
+(* Do the additive phase synthesis and  *)
+(* convert back to complex from polar   *)
+(*......................................*)
+fun synthesis (mag_in:float;synth_freq_in:float;sum_freq_in:float;k:int)
+          returns
+	  (fft_in:complex;sum_freq_out:float)
+var sample_rate_float,fft_size_float,k_float,osamp_float : float ;
+    freq_per_bin,x0,x1 : float ;
+    tmp_sample_rate,tmp_osamp,tmp_fft_size:int ;
+let
+  (* conversions *)
+  tmp_sample_rate = sample_rate ;
+  tmp_osamp = osamp ;
+  tmp_fft_size = fft_size ;
+  sample_rate_float = float(tmp_sample_rate) ;
+  fft_size_float = float(tmp_fft_size) ;
+  k_float = float(k) ;
+  osamp_float = float(tmp_osamp) ;
+  (* actual code *)
+  freq_per_bin = sample_rate_float /. fft_size_float ;
+  x0 = (((synth_freq_in -. (k_float *. freq_per_bin)) /. freq_per_bin) *. 2.0 *. pi) /. osamp_float ;
+  x1 = x0 +. ((k_float *. 2.0 *. pi) /. osamp_float) ;
+  sum_freq_out = sum_freq_in +. x1 ;
+  fft_in = polar2complex(mag_in,sum_freq_out) ;
+tel
+
+node pitch_shift_driver () returns (ps:float)
+let
+  ps = power(2.0,semitones /. 12.0) ;
+tel
+
+(*--------------------------------------------------*)
+(* The main application                             *)
+(*--------------------------------------------------*)
+const int_factor : int  = (fft_size * osamp) / 4
+node pitch_algo (sample:float^fft_size) returns (output_acc:float^fft_size)
+var
+  win,win_fft,ifft_out : complex^fft_size ;
+  win_fft2 : complex^fft_size2 ;
+  mag_tmp,phase,mag,pre_phase,analysis_freq : float^fft_size2 ;
+  aux_zero,aux_out : aux_vec ;
+  sum_freq,pre_sum_freq : float^fft_size2 ;
+  fft_pos : complex^fft_size2 ;
+  pitch_shift : float ;
+  inv_factor : float ;
+  hann_fft,rot_acc : float^fft_size ;
+  additive : float^fft_size ;
+  tmp_int_factor : int ;
+let
+  (* Compute the pitch shift *)
+  pitch_shift = pitch_shift_driver() ;
+
+  (* Convert to complex *)
+  win = map<<fft_size>>
+          float2complex
+          (map<<fft_size>> ( *.) (hann(),sample)) ;
+  (* Perform FFT *)
+  win_fft = fft1024(win) ;
+
+  (* Remove negative frequencies, which are not needed (optimization) *)
+  win_fft2 = win_fft[0 .. fft_size2-1] ;
+
+  (* Extract magnitude and phase. Magnitude is doubled to
+  * compensate for negative frequencies loss. Also, store
+  * phase, as I also need the pre values. *)
+  (mag_tmp,phase) = map<<fft_size2>> complex2polar (win_fft2) ;
+  mag = map<<fft_size2>> ( *.)<(2.0)> (mag_tmp) ;
+  pre_phase = cst_zero_f_fft2 fby phase ;
+
+  (* The analysis phase *)
+  analysis_freq = mapi<<fft_size2>> analysis (phase,pre_phase) ;
+
+  (* Perform the pitch shifting *)
+  aux_zero =
+    {
+      mag = cst_zero_f_fft2 ;
+      freq= cst_zero_f_fft2 
+    } ;
+  aux_out =
+    foldi<<fft_size2>> process<(pitch_shift)> (analysis_freq,mag,aux_zero) ;
+
+  (* Additive phase synthesis and conversion from polar *)
+  (fft_pos,sum_freq) =
+    mapi<<fft_size2>> synthesis (aux_out.mag,aux_out.freq,pre_sum_freq) ;
+  pre_sum_freq = cst_zero_f_fft2 fby sum_freq ;
+
+  (* IFFT and final filtering *)
+  ifft_out = ifft1024(fft_pos@cst_zero_c_fft2) ;
+
+  (* Build the additive factor *)
+  tmp_int_factor = int_factor ;
+  inv_factor = 1.0 /. float(tmp_int_factor) ;
+  hann_fft = map<<fft_size>> ( *.) (hann(),map<<fft_size>> re (ifft_out)) ;
+  additive = map<<fft_size>> ( *.)<(inv_factor)> (hann_fft) ;
+  (* Overlap-add (rotating) accumulator *)
+  rot_acc = output_acc[sample_size .. fft_size-1]@cst_zero_f_sample ;
+  output_acc = map<<fft_size>> (+.) (cst_zero_f_fft fby rot_acc,additive) ;
+tel
+
+node main(i: float^sample_size) returns (o: float^sample_size)
+var
+  sample0,sample1,sample2,sample3 : float^sample_size ;
+  sample : float^fft_size ;
+  tmp_sample_size : int ;
+let
+  (* Sliding window over input samples, Hann window and FFT over it *)
+  tmp_sample_size = sample_size ;
+  sample0 = i;
+  sample1 = cst_zero_f_sample fby sample0 ;
+  sample2 = cst_zero_f_sample fby sample1 ;
+  sample3 = cst_zero_f_sample fby sample2 ;
+  sample  = sample3@sample2@sample1@sample0 ;
+
+  o = (pitch_algo(sample))[0 .. sample_size - 1];
 tel

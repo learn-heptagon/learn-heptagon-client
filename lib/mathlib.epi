@@ -18,7 +18,6 @@ external val fun atan(x:float) returns (y:float)
 external val fun atan2(im:float;re:float) returns (y:float)
 external val fun sqrt(x:float) returns (y:float)
 
-
 external val fun min_float(x:float;y:float) returns (z:float)
 external val fun max_float(x:float;y:float) returns (z:float)
 

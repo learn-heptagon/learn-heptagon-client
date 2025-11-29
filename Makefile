@@ -17,7 +17,7 @@ SRC := \
 	simul.ml interp.ml \
 	kind2Json.ml verify.ml autocorrect.ml user.ml \
 	tryhept.ml \
-	lib/pervasives.ml lib/mathlib.ml
+	lib/pervasives.ml lib/mathlib.ml lib/fftnative.ml
 
 all: tryhept.js login.js
 
