@@ -20,6 +20,7 @@ let create_dataset data label color =
   source##.label := Js.string label;
   source##.borderColor := Chartjs.Color.of_string color;
   source##.backgroundColor := Chartjs.Color.of_string "rgba(0,0,0,0)";
+  source##.cubicInterpolationMode := Chartjs.Interpolation_mode.monotone;
   source
 
 let create_options () =
@@ -435,4 +436,41 @@ module LiveAudioFilterSimul(I : Interpreter) = struct
     Dom.appendChild (by_id divid) (of_node start_btn);
 
     (fun _ -> ignore (Js.Unsafe.(fun_call (js_expr "stopLiveAudio") [||])))
+end
+
+module PidSimul(I : Interpreter) : Simulator = struct
+  let init divid =
+    let chartdivid = divid^"-chart" in
+    ignore ((by_id divid)##appendChild (of_node T.(canvas ~a:[a_id chartdivid] [])));
+
+    (* Run node *)
+    let nbIter = 50 in
+    I.reset ();
+    let src = Array.init nbIter (fun i -> if i < 5 then 0.0 else if i < 30 then 1.0 else 0.0) in
+    let vs = Array.make nbIter 0.0 in
+    let ctrl = Array.make nbIter 0.0 in
+    for i = 1 to nbIter - 1 do
+      let res = I.step [Vfloat src.(i); Vfloat vs.(i-1)] in
+      match res with
+      | [Vfloat output] ->
+         ctrl.(i) <- output;
+         vs.(i) <- vs.(i-1) +. output
+      | _ -> ()
+    done;
+
+    (* Create chart *)
+    let source = create_dataset src "Desired" "red" in
+    let filtered = create_dataset vs "Response" "blue" in
+    let output = create_dataset ctrl "Control" "green" in
+
+    let data = Chartjs.empty_data () in
+    data##.datasets := Js.array [|source; filtered; output|];
+    data##.xLabels := Js.array (Array.map (fun _ -> "") vs);
+
+    let options = create_options () in
+
+    let chart = Chartjs.chart_from_id Chartjs.Chart.line data options chartdivid in
+    Js.Unsafe.global##.chart := chart;
+
+    fun () -> ()
 end

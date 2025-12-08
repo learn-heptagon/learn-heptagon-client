@@ -170,6 +170,13 @@ let interpreter_of_example s p =
                               let classname = "main"
                             end)
       ))
+  | "pid" ->
+    Simulator (module Simul.PidSimul(
+                          DefaultInterpreter(struct
+                              let prog = p
+                              let classname = "main"
+                            end)
+      ))
   (* | "stepper.lus" -> Simulator (module Stepper_simul.StepperSimul( *)
   (*       DefaultInterpreter(struct *)
   (*         let prog = p *)

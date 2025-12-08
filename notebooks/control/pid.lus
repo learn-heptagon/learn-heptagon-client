@@ -1,0 +1,23 @@
+const dt : float =  0.001
+
+node pid_err(kp, ki, kd, err: float) returns (output : float)
+var prev_err, integ : float; (* PID memory *)
+    deriv : float;
+let
+    prev_err = 0.0 fby err;
+    integ = (0.0 fby integ) +. err *. dt;
+    deriv = (err -. prev_err) /. dt;
+
+    output = kp *. err +. ki *. integ +. kd *. deriv;
+tel
+
+node pid(kp, ki, kd, desired, measured : float) returns (output : float)
+let
+    output = pid_err(kp, ki, kd, desired -. measured);
+tel
+
+node main(desired, measured : float) returns (output : float)
+let
+    output = pid(0.5, 0.01, 0.00002, desired, measured)
+tel
+

@@ -24,7 +24,7 @@ all: tryhept.js login.js
 # examples.ml:
 # 	ocaml preproc_examples.ml
 
-NOTEBOOKS = demo cours1 cours2 cours3 cours4 scratchpad fft
+NOTEBOOKS = demo cours1 cours2 cours3 cours4 scratchpad fft control
 NOTEBOOK_DIRS = $(foreach dir,$(NOTEBOOKS),notebooks/$(dir))
 NOTEBOOK_FILES = $(foreach dir, $(NOTEBOOK_DIRS), $(dir)/*)
 
