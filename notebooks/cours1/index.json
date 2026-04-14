@@ -35,6 +35,9 @@
         "filtering2.html",
         "filters7.lus",
         "stopwatch.html",
-        "stopwatch.lus"
+        {
+            "source": "stopwatch.lus",
+            "depends-on": ["switch", "counter"]
+        }
     ]
 }
