@@ -474,3 +474,23 @@ module PidSimul(I : Interpreter) : Simulator = struct
 
     fun () -> ()
 end
+
+(* module PacmanSimul(I : Interpreter) : Simulator = struct *)
+
+(*   let init divid = *)
+(*     let canvas = Page.create_canvas divid (17*10) (17*10) in *)
+(*     open_canvas canvas; *)
+(*     clear_graph (); *)
+
+(*     I.reset (); *)
+
+(*     let continue = ref true in *)
+
+(*     let rec loop () = *)
+(*       if continue then *)
+(*         Sys. *)
+(*         loop () *)
+(*       else () *)
+
+(*     (fun _ -> continue := false) *)
+(* end *)

@@ -10,7 +10,10 @@
         "always.lus",
         "exists.lus",
         "switch.html",
-        "switch-contract.lus",
+        {
+            "source": "switch-contract.lus",
+            "depends-on": ["always", "first_bool"]
+        },
         "traffic-light.html",
         "traffic-light.lus",
         "cycles.html",

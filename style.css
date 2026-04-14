@@ -225,8 +225,26 @@ input.history {
   max-height: 300px
 }
 
+.container {
+  margin-top: 1em;
+}
+
+.anchor {
+    display: block;
+    position: relative;
+    top: -40px;
+    visibility: hidden;
+}
+
+.editor-dependency {
+    padding-top: 0;
+}
+
+.editor-dependency.invalid {
+    background-color: rgba(255, 0, 0, 0.3);
+}
+
 .notebook-editor {
-  margin-top: 2em;
   margin-left: -40;
 }
 

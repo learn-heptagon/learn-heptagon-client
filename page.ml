@@ -94,11 +94,11 @@ let parse_loc_message text =
   let c1 = int_of_string (Str.matched_group 3 text) and c2 = int_of_string (Str.matched_group 4 text) in
   (r1, r2), (c1, c2)
 
-let print_error console_div_id editor text =
+let print_error console_div_id editor row_offset text =
   (* if text <> "\n" then print_string text; *)
   try
     let (row, col) = parse_loc_message text in
-    add_error_marker editor row col
+    add_error_marker editor (fst row + row_offset, snd row + row_offset) col
   with _ ->
     if text <> "\n" && text <> "Fatal Error: Exception Simul.Stop\n"
     then Console.error console_div_id text
@@ -217,7 +217,7 @@ let create_input_editor console_div_id reset_fun hins houts info rowid =
   );
 
   Ace.(editor_struct.editor)##on (Js.string "change") (fun () ->
-      Sys_js.set_channel_flusher stderr (fun e -> print_error console_div_id editor_struct e);
+      Sys_js.set_channel_flusher stderr (fun e -> print_error console_div_id editor_struct 0 e);
       reset_editor console_div_id editor_struct;
       let editor_value = Ace.get_contents editor_struct in
       if editor_value <> "" then

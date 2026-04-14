@@ -177,6 +177,13 @@ let interpreter_of_example s p =
                               let classname = "main"
                             end)
       ))
+  (* | "pacman" -> *)
+  (*   Simulator (module Simul.PacmanSimul( *)
+  (*                         DefaultInterpreter(struct *)
+  (*                             let prog = p *)
+  (*                             let classname = "main" *)
+  (*                           end) *)
+  (*     )) *)
   (* | "stepper.lus" -> Simulator (module Stepper_simul.StepperSimul( *)
   (*       DefaultInterpreter(struct *)
   (*         let prog = p *)
