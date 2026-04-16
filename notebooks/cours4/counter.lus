@@ -7,7 +7,7 @@ tel
 
 node counter(i, rs: bool) returns (c: int)
 contract 
-  enforce counter_spec(i, rs, c)
+  guarantee counter_spec(i, rs, c)
 let
   c = if rs then 0 
       else (if i then 1 else 0) + (0 -> pre c);

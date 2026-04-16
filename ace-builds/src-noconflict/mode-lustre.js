@@ -9,7 +9,7 @@ ace.define("ace/mode/lustre_highlight_rules",["require","exports","module","ace/
             "|if|then|else|fby|when|merge|switch|do|end|reset|every|" +
             "automaton|state|until|unless|continue|last|" +
             "and|or|xor|not|" + // operators
-            "contract|assume|enforce|with|" + // contract
+            "contract|assume|enforce|guarantee|with|" + // contract
             "class|instance|step|case|of|in|default|skip|machine|" + // obc coloring
             "break|while|return|" + // C coloring
             "constructor" // JS coloring;

@@ -1,8 +1,8 @@
 node max(a, b: real) returns (o : real)
 contract
-  enforce o >=. a
-  enforce o >=. b
-  enforce (o = a) or (o = b)
+  guarantee o >=. a
+  guarantee o >=. b
+  guarantee (o = a) or (o = b)
 let
    o = if a <=. b then b else a;
 tel
