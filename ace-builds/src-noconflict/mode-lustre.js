@@ -6,7 +6,7 @@ ace.define("ace/mode/lustre_highlight_rules",["require","exports","module","ace/
 
     var LustreHighlightRules = function() {
         var keywords = "open|type|const|fun|node|returns|var|let|tel" +
-            "|if|then|else|fby|when|merge|switch|do|end|reset|every|" +
+            "|if|then|else|fby|pre|->|when|merge|switch|do|end|reset|every|" +
             "automaton|state|until|unless|continue|last|" +
             "and|or|xor|not|" + // operators
             "contract|assume|enforce|guarantee|with|" + // contract
